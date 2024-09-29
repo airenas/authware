@@ -1,4 +1,5 @@
 use async_trait::async_trait;
+use chrono::Utc;
 use std::{
     collections::HashMap,
     sync::{Arc, Mutex},
@@ -32,6 +33,7 @@ impl SessionStore for InMemorySessionStore {
             .store
             .lock()
             .map_err(|e| anyhow::anyhow!("Locking error: {:?}", e))?;
+        check_remove_sessions(&mut store);
         store.insert(session_id.to_string(), data);
         Ok(())
     }
@@ -70,4 +72,17 @@ impl SessionStore for InMemorySessionStore {
             None => Err(model::store::Error::NoSession()),
         }
     }
+}
+
+fn check_remove_sessions(store: &mut HashMap<String, SessionData>) -> () {
+    let now = Utc::now().timestamp_millis();
+
+    store.retain(|key, session_data| {
+        if session_data.valid_till <= now {
+            tracing::info!("remove session: {}", key);
+            false
+        } else {
+            true
+        }
+    });
 }
