@@ -3,12 +3,14 @@ use authware::auth::sample::Sample;
 use authware::model::config::SessionConfig;
 use authware::model::service;
 use authware::store::memory::InMemorySessionStore;
+use authware::tls::cert::generate_certificates;
 use authware::{handler, shutdown_signal, AuthService, SessionStore};
 use axum::http::HeaderName;
+use axum_server::tls_rustls::RustlsConfig;
 use humantime::format_duration;
+use std::net::SocketAddr;
 use std::sync::Arc;
 use std::time::Duration;
-use tokio::net::TcpListener;
 
 use clap::Parser;
 use tower_http::cors::{Any, CorsLayer};
@@ -28,7 +30,7 @@ use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 struct Args {
     /// Server port
     #[arg(long, env, default_value = "8000")]
-    port: i32,
+    port: u16,
     /// Session timeout
     #[arg(long, env, default_value = "6h", value_parser = humantime::parse_duration)]
     session_timeout: Duration,
@@ -41,6 +43,8 @@ struct Args {
     /// Sample user
     #[arg(long, env, default_value = "")]
     sample_user_pass: String,
+    #[arg(long, env, default_value = "localhost")]
+    host: String,
 }
 
 async fn main_int(args: Args) -> anyhow::Result<()> {
@@ -64,7 +68,8 @@ async fn main_int(args: Args) -> anyhow::Result<()> {
         session_timeout: args.session_timeout.as_millis() as i64,
     };
     let store: Box<dyn SessionStore + Send + Sync> = Box::new(InMemorySessionStore::new());
-    let sample_auth: Box<dyn AuthService + Send + Sync> = Box::new(Sample::new(&args.sample_user, &args.sample_user_pass)?);
+    let sample_auth: Box<dyn AuthService + Send + Sync> =
+        Box::new(Sample::new(&args.sample_user, &args.sample_user_pass)?);
     let service_data = service::Data {
         config,
         store,
@@ -95,12 +100,23 @@ async fn main_int(args: Args) -> anyhow::Result<()> {
             cors,
         ));
 
-    let listener = TcpListener::bind(format!("0.0.0.0:{}", args.port)).await?;
+    let (cert, key_pair) = generate_certificates(&args.host)?;
+    tracing::info!("Configuring Rustls");
+    let cfg = RustlsConfig::from_der(vec![cert.der().to_vec()], key_pair.serialize_der()).await?;
+    tracing::info!(port = args.port, "starting https");
+    let addr = SocketAddr::from(([0, 0, 0, 0], args.port));
 
-    tracing::info!(port = args.port, "starting http");
-    axum::serve(listener, app)
-        .with_graceful_shutdown(shutdown_signal())
-        .await?;
+    let handle = axum_server::Handle::new();
+    let shutdown_future = shutdown_signal_handle(handle.clone());
+    tokio::spawn(shutdown_future);
+
+    tracing::debug!("listening on {}", addr);
+    axum_server::bind_rustls(addr, cfg)
+        .handle(handle)
+        .serve(app.into_make_service())
+        .await
+        .unwrap();
+
     tracing::info!("Bye");
     Ok(())
 }
@@ -117,4 +133,10 @@ async fn main() -> anyhow::Result<()> {
         return Err(e);
     }
     Ok(())
+}
+
+async fn shutdown_signal_handle(handle: axum_server::Handle) {
+    shutdown_signal().await;
+    tracing::info!("Received termination signal shutting down");
+    handle.graceful_shutdown(Some(Duration::from_secs(10)));
 }

@@ -74,7 +74,7 @@ impl SessionStore for InMemorySessionStore {
     }
 }
 
-fn check_remove_sessions(store: &mut HashMap<String, SessionData>) -> () {
+fn check_remove_sessions(store: &mut HashMap<String, SessionData>) {
     let now = Utc::now().timestamp_millis();
 
     store.retain(|key, session_data| {

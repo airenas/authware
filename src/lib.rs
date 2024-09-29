@@ -1,6 +1,7 @@
 pub mod auth;
 pub mod model;
 pub mod store;
+pub mod tls;
 
 use async_trait::async_trait;
 use model::data::SessionData;
