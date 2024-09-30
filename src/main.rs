@@ -3,10 +3,12 @@ use authware::auth::sample::Sample;
 use authware::model::config::SessionConfig;
 use authware::model::service;
 use authware::store::memory::InMemorySessionStore;
+use authware::store::redis::RedisSessionStore;
 use authware::tls::cert::generate_certificates;
 use authware::{handler, shutdown_signal, AuthService, SessionStore};
 use axum::http::HeaderName;
 use axum_server::tls_rustls::RustlsConfig;
+use deadpool_redis::{Config, Runtime};
 use humantime::format_duration;
 use std::net::SocketAddr;
 use std::sync::Arc;
@@ -45,6 +47,8 @@ struct Args {
     sample_user_pass: String,
     #[arg(long, env, default_value = "localhost")]
     host: String,
+    #[arg(long, env, default_value = "")]
+    redis_url: String,
 }
 
 async fn main_int(args: Args) -> anyhow::Result<()> {
@@ -67,7 +71,17 @@ async fn main_int(args: Args) -> anyhow::Result<()> {
         inactivity: args.inactivity_timeout.as_millis() as i64,
         session_timeout: args.session_timeout.as_millis() as i64,
     };
-    let store: Box<dyn SessionStore + Send + Sync> = Box::new(InMemorySessionStore::new());
+
+    let store: Box<dyn SessionStore + Send + Sync> = if args.redis_url.is_empty() {
+        log::warn!("Using in-memory store");
+        Box::new(InMemorySessionStore::new())
+    } else {
+        log::info!("Using redis store");
+        let cfg = Config::from_url(args.redis_url);
+        let pool = cfg.create_pool(Some(Runtime::Tokio1))?;
+        Box::new(RedisSessionStore::new(pool))
+    };
+
     let sample_auth: Box<dyn AuthService + Send + Sync> =
         Box::new(Sample::new(&args.sample_user, &args.sample_user_pass)?);
     let service_data = service::Data {

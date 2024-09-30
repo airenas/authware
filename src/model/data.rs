@@ -1,6 +1,8 @@
+use serde::{Deserialize, Serialize};
+
 use crate::handler::error::ApiError;
 
-#[derive(Clone, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct SessionData {
     pub user: String,
     pub ip: String,
