@@ -1,21 +1,24 @@
 use std::sync::Arc;
 
-use axum::extract::State;
+use axum::{extract::State, http::HeaderMap};
 use axum_extra::{
     headers::{authorization::Bearer, Authorization},
     TypedHeader,
 };
 use chrono::Utc;
 
-use crate::model::service;
+use crate::{handler::login::extract_ip, model::service};
 
 use super::error::ApiError;
 
 pub async fn handler(
     State(data): State<Arc<service::Data>>,
+    headers: HeaderMap,
     bearer: Option<TypedHeader<Authorization<Bearer>>>,
 ) -> Result<(), ApiError> {
     tracing::debug!("start keep_alive");
+    let ip = extract_ip(&headers);
+    tracing::debug!(ip = ip, "caller");
     return match bearer {
         None => {
             return Err(ApiError::NoSession());
@@ -26,6 +29,7 @@ pub async fn handler(
             let store = &data.store;
             let res = store.get(session_id).await?;
 
+            res.check_ip(&ip)?;
             let now = Utc::now().timestamp_millis();
             res.check_expired(now)?;
             let config = &data.config;

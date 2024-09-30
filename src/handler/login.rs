@@ -3,6 +3,7 @@ use std::sync::Arc;
 use axum::{
     debug_handler,
     extract::{self, State},
+    http::HeaderMap,
     Json,
 };
 use base64::{prelude::BASE64_URL_SAFE, Engine};
@@ -37,6 +38,7 @@ pub struct Response {
 #[debug_handler]
 pub async fn handler(
     State(data): State<Arc<service::Data>>,
+    headers: HeaderMap,
     Json(payload): Json<Request>,
 ) -> Result<extract::Json<Response>, ApiError> {
     let user = payload.user.as_deref().unwrap_or("");
@@ -44,6 +46,7 @@ pub async fn handler(
     if payload.user.is_none() || payload.pass.is_none() {
         return Err(ApiError::WrongUserPass());
     }
+    let ip = extract_ip(&headers);
 
     let now = Utc::now();
     let cfg = &data.config;
@@ -52,7 +55,7 @@ pub async fn handler(
 
     let pass = payload.pass.as_deref().unwrap_or("");
 
-    tracing::info!(user = user, "call auth service login");
+    tracing::info!(user = user, ip = ip, "call auth service login");
     let res = auth.login(user, pass).await?;
     tracing::info!(user = user, "got result");
     tracing::debug!(user = user, "creating session");
@@ -63,7 +66,7 @@ pub async fn handler(
             &session_id,
             SessionData {
                 user: res.name.clone(),
-                ip: "".to_string(),
+                ip,
                 valid_till: now.timestamp_millis() + cfg.session_timeout,
                 last_access: now.timestamp_millis(),
             },
@@ -86,4 +89,13 @@ fn generate_session() -> String {
     let mut session_id_bytes = [0u8; 128];
     rng.fill_bytes(&mut session_id_bytes);
     BASE64_URL_SAFE.encode(session_id_bytes)
+}
+
+pub fn extract_ip(headers: &HeaderMap) -> String {
+    return headers
+        .get("x-forwarded-for")
+        .and_then(|header_value| header_value.to_str().ok())
+        .and_then(|ip_list| ip_list.split(',').next())
+        .unwrap_or("")
+        .to_string();
 }

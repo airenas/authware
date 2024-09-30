@@ -13,6 +13,10 @@ impl Sample {
     pub fn new(user_pass_pairs: &str) -> anyhow::Result<Self> {
         let passwords = parse_user_pass(user_pass_pairs)?;
         let users = passwords.keys().map(|un| to_user(un)).collect();
+        passwords.keys().for_each(|un| {
+            tracing::info!(user = un, "Sample user");
+        });
+
         Ok(Sample { users, passwords })
     }
 }

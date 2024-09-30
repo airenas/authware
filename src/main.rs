@@ -57,7 +57,7 @@ struct Args {
 async fn main_int(args: Args) -> anyhow::Result<()> {
     log::info!("Starting authware");
     tracing::info!(version = env!("CARGO_APP_VERSION"));
-    tracing::info!(port = args.port, "port");
+    tracing::info!(port = args.port, "cfg");
 
     tracing::info!(
         session_timeout = format_duration(args.session_timeout).to_string(),
@@ -130,7 +130,7 @@ async fn main_int(args: Args) -> anyhow::Result<()> {
     let shutdown_future = shutdown_signal_handle(handle.clone());
     tokio::spawn(shutdown_future);
 
-    tracing::debug!("listening on {}", addr);
+    tracing::debug!(addr = format!("{}", addr), "listening");
     axum_server::bind_rustls(addr, cfg)
         .handle(handle)
         .serve(app.into_make_service())

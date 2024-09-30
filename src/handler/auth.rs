@@ -9,7 +9,7 @@ use axum_extra::{
     TypedHeader,
 };
 
-use crate::model::service;
+use crate::{handler::login::extract_ip, model::service};
 
 use super::error::ApiError;
 
@@ -22,7 +22,8 @@ pub async fn handler(
         .get("X-Forwarded-Uri")
         .map(|h| h.to_str().unwrap_or("").to_string());
 
-    tracing::info!(url = forwarded_uri, "auth");
+    let ip = extract_ip(&headers);
+    tracing::info!(url = forwarded_uri, ip = ip, "auth");
     let session_id = match bearer {
         None => match forwarded_uri {
             Some(token) => parse_token_from_url(&token).unwrap_or_default(),
@@ -32,10 +33,11 @@ pub async fn handler(
         },
         Some(val) => val.token().to_string(),
     };
-    tracing::info!(session_id = session_id, "auth");
+    tracing::debug!(session_id = session_id, "auth");
     let store = &data.store;
     let res = store.get(&session_id).await?;
-    tracing::info!(session_id = session_id, user = res.user, "auth");
+    tracing::debug!(session_id = session_id, user = res.user, ip = res.ip, "got");
+    res.check_ip(&ip)?;
     let now = Utc::now().timestamp_millis();
     res.check_expired(now)?;
     let config = &data.config;
@@ -51,4 +53,20 @@ fn parse_token_from_url(url: &str) -> Option<String> {
         .query_pairs()
         .find(|(key, _)| key == "token")
         .map(|(_, value)| value.to_string())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use test_case::test_case;
+
+    #[test_case("",  None; "empty")]
+    #[test_case("/olia", None; "no token")]
+    #[test_case("/olia?token=aaaaa", Some("aaaaa".to_string()); "parsed")]
+    #[test_case("/olia?vvv=aaaaa", None; "none")]
+    #[test_case("/olia?aaaa=nnnnnn&token=aaaaa", Some("aaaaa".to_string()); "long")]
+    fn test_parse_token_from_url(input: &str, expected: Option<String>) {
+        let actual = parse_token_from_url(input);
+        assert_eq!(expected, actual);
+    }
 }

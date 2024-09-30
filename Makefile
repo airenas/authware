@@ -2,7 +2,7 @@
 log?=INFO
 ###############################################################################
 run/authware:
-	RUST_LOG=$(log) cargo run --bin authware -- --sample-user-pass=olia1 --redis-url=redis://localhost:6380 --encryption-key=1234567890123456asdasds
+	RUST_LOG=$(log) cargo run --bin authware -- --redis-url=redis://localhost:6380 --encryption-key=1234567890123456asdasds
 .PHONY: run/authware
 ###############################################################################
 build/local: 
