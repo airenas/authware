@@ -2,10 +2,11 @@ pub mod model;
 use authware::auth::sample::Sample;
 use authware::model::config::SessionConfig;
 use authware::model::service;
+use authware::store::encryptor::MagicEncryptor;
 use authware::store::memory::InMemorySessionStore;
 use authware::store::redis::RedisSessionStore;
 use authware::tls::cert::generate_certificates;
-use authware::{handler, shutdown_signal, AuthService, SessionStore};
+use authware::{handler, shutdown_signal, AuthService, Encryptor, SessionStore};
 use axum::http::HeaderName;
 use axum_server::tls_rustls::RustlsConfig;
 use deadpool_redis::{Config, Runtime};
@@ -49,6 +50,9 @@ struct Args {
     host: String,
     #[arg(long, env, default_value = "")]
     redis_url: String,
+    // data encryption key
+    #[arg(long, env, default_value = "", required = true)]
+    encryption_key: String,
 }
 
 async fn main_int(args: Args) -> anyhow::Result<()> {
@@ -79,7 +83,8 @@ async fn main_int(args: Args) -> anyhow::Result<()> {
         log::info!("Using redis store");
         let cfg = Config::from_url(args.redis_url);
         let pool = cfg.create_pool(Some(Runtime::Tokio1))?;
-        Box::new(RedisSessionStore::new(pool))
+        let encryptor: Box<dyn Encryptor + Send + Sync> = Box::new(MagicEncryptor::new(&args.encryption_key)?);
+        Box::new(RedisSessionStore::new(pool, encryptor))   
     };
 
     let sample_auth: Box<dyn AuthService + Send + Sync> =

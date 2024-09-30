@@ -4,15 +4,16 @@ use deadpool_redis::redis::AsyncCommands;
 use deadpool_redis::{Connection, Pool};
 use std::cmp::max;
 
-use crate::{model, SessionData, SessionStore};
+use crate::{model, Encryptor, SessionData, SessionStore};
 
 pub struct RedisSessionStore {
     pool: Pool,
+    encryptor: Box<dyn Encryptor + Send + Sync>,
 }
 
 impl RedisSessionStore {
-    pub fn new(pool: Pool) -> Self {
-        RedisSessionStore { pool }
+    pub fn new(pool: Pool, encryptor: Box<dyn Encryptor + Send + Sync>) -> Self {
+        RedisSessionStore { pool, encryptor }
     }
     async fn get_conn(&self) -> Result<Connection, model::store::Error> {
         self.pool
@@ -33,10 +34,22 @@ impl RedisSessionStore {
         let secs = (max(data.valid_till - now.timestamp_millis(), 0) / 1000) as u64;
         tracing::debug!("Session valid for: {} secs", secs);
         let _: () = conn
-            .set_ex(session_id, serialized_data, secs)
+            .set_ex(
+                self.get_enc_str(session_id),
+                self.get_enc_str(&serialized_data),
+                secs,
+            )
             .await
             .map_err(|e| anyhow::anyhow!("Redis set error: {:?}", e))?;
         Ok(())
+    }
+
+    fn get_enc_str(&self, session_id: &str) -> String {
+        self.encryptor.encrypt(session_id)
+    }
+
+    fn get_dec_str(&self, session_id: &str) -> anyhow::Result<String> {
+        self.encryptor.decrypt(session_id)
     }
 
     async fn get_int(
@@ -45,14 +58,15 @@ impl RedisSessionStore {
         session_id: &str,
     ) -> Result<SessionData, model::store::Error> {
         let data: Option<String> = conn
-            .get(session_id)
+            .get(self.get_enc_str(session_id))
             .await
             .map_err(|e| anyhow::anyhow!("Redis get error: {:?}", e))?;
 
         match data {
             Some(serialized_data) => {
-                let session_data: SessionData = serde_json::from_str(&serialized_data)
-                    .map_err(|e| anyhow::anyhow!("Deserialization error: {:?}", e))?;
+                let session_data: SessionData =
+                    serde_json::from_str(self.get_dec_str(&serialized_data)?.as_str())
+                        .map_err(|e| anyhow::anyhow!("Deserialization error: {:?}", e))?;
                 Ok(session_data)
             }
             None => Err(model::store::Error::NoSession()),
@@ -76,7 +90,7 @@ impl SessionStore for RedisSessionStore {
     async fn remove(&self, session_id: &str) -> Result<(), model::store::Error> {
         let mut conn = self.get_conn().await?;
         let result: usize = conn
-            .del(session_id)
+            .del(self.get_enc_str(session_id))
             .await
             .map_err(|e| anyhow::anyhow!("Redis delete error: {:?}", e))?;
         if result == 0 {

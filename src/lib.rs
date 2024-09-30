@@ -23,6 +23,11 @@ pub trait AuthService {
     async fn login(&self, user: &str, pass: &str) -> Result<model::auth::User, model::auth::Error>;
 }
 
+pub trait Encryptor {
+    fn encrypt(&self, data: &str) -> String;
+    fn decrypt(&self, data: &str) -> anyhow::Result<String>;
+}
+
 pub async fn shutdown_signal() {
     let ctrl_c = async {
         signal::ctrl_c()
