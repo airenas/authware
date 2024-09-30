@@ -28,3 +28,29 @@ impl Encryptor for MagicEncryptor {
             .map_err(|e| anyhow::anyhow!("{}", e))
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use test_case::test_case;
+
+    #[test_case("", "", "DgXh9i/pIea5iXvXZg15dw=="; "empty")]
+    #[test_case("olia", "", "LVX/HEA5MsQR0J9NZSNLLA=="; "value")]
+    #[test_case("olia", "aaaaaa", "gkYxNAn3tL5JcgE4O8x7Zg=="; "value other key")]
+    fn test_encrypt(input: &str, key_suffix: &str, expected: &str) {
+        let key = "1234567890123456".to_string() + key_suffix;
+        let encryptor = MagicEncryptor::new(&key).unwrap();
+        let actual = encryptor.encrypt(input);
+        assert_eq!(expected, actual);
+    }
+
+    #[test_case("DgXh9i/pIea5iXvXZg15dw==", "", ""; "empty")]
+    #[test_case("LVX/HEA5MsQR0J9NZSNLLA==", "", "olia"; "value")]
+    #[test_case("gkYxNAn3tL5JcgE4O8x7Zg==", "aaaaaa", "olia"; "value other key")]
+    fn test_decrypt(input: &str, key_suffix: &str, expected: &str) {
+        let key = "1234567890123456".to_string() + key_suffix;
+        let encryptor = MagicEncryptor::new(&key).unwrap();
+        let actual = encryptor.decrypt(input).unwrap();
+        assert_eq!(expected, actual);
+    }
+}

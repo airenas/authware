@@ -40,14 +40,13 @@ struct Args {
     /// Inactivity timeout
     #[arg(long, env, default_value = "30m", value_parser = humantime::parse_duration)]
     inactivity_timeout: Duration,
-    /// Sample user
-    #[arg(long, env, default_value = "admin")]
-    sample_user: String,
-    /// Sample user
-    #[arg(long, env, default_value = "")]
-    sample_user_pass: String,
+    /// Sample users list, format: user:pass;user:pass
+    #[arg(long, env, default_value = "admin:admin;user:user")]
+    sample_users: String,
+    /// host for certificate generation    
     #[arg(long, env, default_value = "localhost")]
     host: String,
+    /// redis url
     #[arg(long, env, default_value = "")]
     redis_url: String,
     // data encryption key
@@ -83,12 +82,14 @@ async fn main_int(args: Args) -> anyhow::Result<()> {
         log::info!("Using redis store");
         let cfg = Config::from_url(args.redis_url);
         let pool = cfg.create_pool(Some(Runtime::Tokio1))?;
-        let encryptor: Box<dyn Encryptor + Send + Sync> = Box::new(MagicEncryptor::new(&args.encryption_key)?);
-        Box::new(RedisSessionStore::new(pool, encryptor))   
+        let encryptor: Box<dyn Encryptor + Send + Sync> =
+            Box::new(MagicEncryptor::new(&args.encryption_key)?);
+        Box::new(RedisSessionStore::new(pool, encryptor))
     };
 
+    log::warn!("Using sample users auth");
     let sample_auth: Box<dyn AuthService + Send + Sync> =
-        Box::new(Sample::new(&args.sample_user, &args.sample_user_pass)?);
+        Box::new(Sample::new(&args.sample_users)?);
     let service_data = service::Data {
         config,
         store,
