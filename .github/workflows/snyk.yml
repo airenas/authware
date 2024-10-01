@@ -1,0 +1,42 @@
+name: snyk vulnerabilities check
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+jobs:
+  analyze:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        container: [authware]
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Build containers ${{ matrix.container }}
+        run: make docker/${{ matrix.container }}/build version=latest  
+
+      - name: Run Snyk to check ${{ matrix.container }} Docker image for vulnerabilities
+        continue-on-error: true
+        uses: snyk/actions/docker@master
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+        with:
+          image: ${{ secrets.DOCKERHUB_USERNAME }}/bt-${{ matrix.container }}:latest
+          args: --file=build/${{ matrix.container }}/Dockerfile
+
+      - name: Replace security-severity undefined or null findings 
+        run: |
+          sed -i 's/"security-severity": "undefined"/"security-severity": "0"/g' snyk.sarif
+          sed -i 's/"security-severity": "null"/"security-severity": "0"/g' snyk.sarif       
+
+      - name: Make sarif file copy
+        run: mv snyk.sarif snyk-${{ matrix.container }}.sarif
+
+      - name: Upload snyk ${{ matrix.container }} result to GitHub Code Scanning
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: snyk-${{ matrix.container }}.sarif
+          category: ${{ matrix.container }}-analysis
+        
