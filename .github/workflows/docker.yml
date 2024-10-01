@@ -26,7 +26,7 @@ jobs:
         uses: docker/metadata-action@v4
         with:
           images: |
-            ${{ secrets.DOCKERHUB_USERNAME }}/bt-${{ matrix.container }}
+            ${{ secrets.DOCKERHUB_USERNAME }}/${{ matrix.container }}
           tags: |
             type=ref,event=branch
             type=ref,event=pr
