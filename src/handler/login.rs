@@ -92,9 +92,11 @@ fn generate_session() -> String {
 }
 
 pub fn extract_ip(headers: &HeaderMap) -> String {
-    return headers
+    let ips = headers
         .get("x-forwarded-for")
-        .and_then(|header_value| header_value.to_str().ok())
+        .and_then(|header_value| header_value.to_str().ok());
+    tracing::trace!(ips = ?ips, "ips");
+    return ips
         .and_then(|ip_list| ip_list.split(',').next())
         .unwrap_or("")
         .to_string();
