@@ -1,4 +1,4 @@
-[![rust](https://github.com/airenas/authware/actions/workflows/rust.yml/badge.svg)](https://github.com/airenas/authware/actions/workflows/rust.yml)
+[![rust](https://github.com/airenas/authware/actions/workflows/rust.yml/badge.svg)](https://github.com/airenas/authware/actions/workflows/rust.yml)[![docker](https://github.com/airenas/authware/actions/workflows/docker.yml/badge.svg)](https://github.com/airenas/authware/actions/workflows/docker.yml)[![snyk vulnerabilities check](https://github.com/airenas/authware/actions/workflows/snyk.yml/badge.svg)](https://github.com/airenas/authware/actions/workflows/snyk.yml)
 
 # Authware Traefik Middleware
 
