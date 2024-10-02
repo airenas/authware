@@ -44,12 +44,12 @@ impl RedisSessionStore {
         Ok(())
     }
 
-    fn get_enc_str(&self, session_id: &str) -> String {
-        self.encryptor.encrypt(session_id)
+    fn get_enc_str(&self, data: &str) -> String {
+        self.encryptor.encrypt(data)
     }
 
-    fn get_dec_str(&self, session_id: &str) -> anyhow::Result<String> {
-        self.encryptor.decrypt(session_id)
+    fn get_dec_str(&self, data: &str) -> anyhow::Result<String> {
+        self.encryptor.decrypt(data)
     }
 
     async fn get_int(
@@ -77,7 +77,7 @@ impl RedisSessionStore {
 #[async_trait]
 impl SessionStore for RedisSessionStore {
     async fn add(&self, session_id: &str, data: SessionData) -> Result<(), model::store::Error> {
-        tracing::info!("Adding session: {}", session_id);
+        tracing::trace!("Adding session: {}", session_id);
         let mut conn = self.get_conn().await?;
         self.add_int(&mut conn, session_id, data).await
     }

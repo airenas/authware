@@ -14,7 +14,7 @@ impl Sample {
         let passwords = parse_user_pass(user_pass_pairs)?;
         let users = passwords.keys().map(|un| to_user(un)).collect();
         passwords.keys().for_each(|un| {
-            tracing::info!(user = un, "Sample user");
+            tracing::debug!(user = un, "Sample");
         });
 
         Ok(Sample { users, passwords })

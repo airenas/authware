@@ -28,7 +28,7 @@ impl Default for InMemorySessionStore {
 #[async_trait]
 impl SessionStore for InMemorySessionStore {
     async fn add(&self, session_id: &str, data: SessionData) -> Result<(), model::store::Error> {
-        tracing::info!("Adding session: {}", session_id);
+        tracing::trace!("Adding session: {}", session_id);
         let mut store = self
             .store
             .lock()
@@ -79,7 +79,7 @@ fn check_remove_sessions(store: &mut HashMap<String, SessionData>) {
 
     store.retain(|key, session_data| {
         if session_data.valid_till <= now {
-            tracing::info!("remove session: {}", key);
+            tracing::trace!("remove session: {}", key);
             false
         } else {
             true

@@ -44,10 +44,10 @@ pub async fn shutdown_signal() {
 
     tokio::select! {
         _ = ctrl_c => {
-            log::info!("Ctrl-C received, shutting down");
+            log::trace!("Ctrl-C received, shutting down");
         },
         _ = terminate => {
-            log::info!("SIGTERM received, shutting down");
+            log::trace!("SIGTERM received, shutting down");
         },
     }
 }

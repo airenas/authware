@@ -44,22 +44,22 @@ impl IntoResponse for ApiError {
                 )
             }
             ApiError::WrongUserPass() => {
-                tracing::error!("Wrong user or password");
+                tracing::warn!("Wrong user or password");
                 (
                     StatusCode::UNAUTHORIZED,
                     "Wrong user or password".to_string(),
                 )
             }
             ApiError::ExpiredPass() => {
-                tracing::error!("Expired pass");
+                tracing::warn!("Expired pass");
                 (StatusCode::UNAUTHORIZED, "Expired password".to_string())
             }
             ApiError::ExpiredSession() => {
-                tracing::error!("Expired session");
+                tracing::warn!("Expired session");
                 (StatusCode::UNAUTHORIZED, "Session expired".to_string())
             }
             ApiError::NoSession() => {
-                tracing::error!("No session");
+                tracing::warn!("No session");
                 (StatusCode::UNAUTHORIZED, "No session".to_string())
             }
         };

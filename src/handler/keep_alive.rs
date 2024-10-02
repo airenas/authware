@@ -25,7 +25,7 @@ pub async fn handler(
         }
         Some(bearer) => {
             let session_id = bearer.token();
-            tracing::info!(session_id = session_id, "keep_alive");
+            tracing::debug!(session_id = session_id, "keep_alive");
             let store = &data.store;
             let res = store.get(session_id).await?;
 

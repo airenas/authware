@@ -46,9 +46,9 @@ pub async fn handler(
 }
 
 fn parse_token_from_url(url: &str) -> Option<String> {
-    tracing::info!(url = url, "parse_token_from_url");
+    tracing::debug!(url = url, "parse_token_from_url");
     let parsed_url = Url::parse(&format!("http://localhost{}", url)).ok()?;
-    tracing::info!("parsed");
+    tracing::debug!("parsed");
     parsed_url
         .query_pairs()
         .find(|(key, _)| key == "token")

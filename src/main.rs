@@ -68,7 +68,6 @@ async fn main_int(args: Args) -> anyhow::Result<()> {
         "cfg"
     );
     tracing::info!(port = args.port, "port");
-    log::debug!("Init tracing...");
 
     let config = SessionConfig {
         inactivity: args.inactivity_timeout.as_millis() as i64,
@@ -121,16 +120,16 @@ async fn main_int(args: Args) -> anyhow::Result<()> {
         ));
 
     let (cert, key_pair) = generate_certificates(&args.host)?;
-    tracing::info!("Configuring Rustls");
+    tracing::trace!("Configuring Rustls");
     let cfg = RustlsConfig::from_der(vec![cert.der().to_vec()], key_pair.serialize_der()).await?;
-    tracing::info!(port = args.port, "starting https");
+    tracing::debug!(port = args.port, "starting https");
     let addr = SocketAddr::from(([0, 0, 0, 0], args.port));
 
     let handle = axum_server::Handle::new();
     let shutdown_future = shutdown_signal_handle(handle.clone());
     tokio::spawn(shutdown_future);
 
-    tracing::debug!(addr = format!("{}", addr), "listening");
+    tracing::info!(addr = format!("{}", addr), "listening");
     axum_server::bind_rustls(addr, cfg)
         .handle(handle)
         .serve(app.into_make_service())
@@ -157,6 +156,6 @@ async fn main() -> anyhow::Result<()> {
 
 async fn shutdown_signal_handle(handle: axum_server::Handle) {
     shutdown_signal().await;
-    tracing::info!("Received termination signal shutting down");
+    tracing::trace!("Received termination signal shutting down");
     handle.graceful_shutdown(Some(Duration::from_secs(10)));
 }

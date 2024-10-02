@@ -42,7 +42,7 @@ pub async fn handler(
     Json(payload): Json<Request>,
 ) -> Result<extract::Json<Response>, ApiError> {
     let user = payload.user.as_deref().unwrap_or("");
-    tracing::info!(user = user, "starting login");
+    tracing::debug!(user = user, "starting login");
     if payload.user.is_none() || payload.pass.is_none() {
         return Err(ApiError::WrongUserPass());
     }
@@ -55,12 +55,12 @@ pub async fn handler(
 
     let pass = payload.pass.as_deref().unwrap_or("");
 
-    tracing::info!(user = user, ip = ip, "call auth service login");
+    tracing::debug!(user = user, ip = ip, "call auth service login");
     let res = auth.login(user, pass).await?;
-    tracing::info!(user = user, "got result");
-    tracing::debug!(user = user, "creating session");
+    tracing::trace!(user = user, "got result");
+    tracing::trace!(user = user, "creating session");
     let session_id = generate_session();
-    tracing::debug!(user = user, "saving");
+    tracing::trace!(user = user, "saving");
     store
         .add(
             &session_id,
@@ -72,7 +72,7 @@ pub async fn handler(
             },
         )
         .await?;
-    tracing::debug!(user = user, "saved");
+    tracing::trace!(user = user, "saved");
     let response = Response {
         session_id,
         user: User {

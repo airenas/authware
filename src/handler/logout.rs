@@ -19,6 +19,6 @@ pub async fn handler(
     let ip = extract_ip(&headers);
     tracing::debug!(session_id = session_id, ip = ip, "logout");
     data.store.remove(session_id).await?;
-    tracing::debug!(session_id = session_id, "logout done");
+    tracing::trace!(session_id = session_id, "logout done");
     Ok(())
 }
