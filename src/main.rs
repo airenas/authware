@@ -110,12 +110,10 @@ async fn main_int(args: Args) -> anyhow::Result<()> {
         .route("/auth/logout", post(handler::logout::handler))
         .route("/auth/keep-alive", post(handler::keep_alive::handler))
         .route("/auth", get(handler::auth::handler))
-        .layer(DefaultBodyLimit::disable())
-        .layer(RequestBodyLimitLayer::new(500 * 1024 * 1024))
         .with_state(quarded_data)
         .layer((
             TraceLayer::new_for_http(),
-            TimeoutLayer::new(Duration::from_secs(40)),
+            TimeoutLayer::new(Duration::from_secs(15)),
             cors,
         ));
 
