@@ -7,7 +7,7 @@ use axum_extra::{
 };
 use chrono::Utc;
 
-use crate::{handler::login::extract_ip, model::service};
+use crate::model::service;
 
 use super::error::ApiError;
 
@@ -17,8 +17,8 @@ pub async fn handler(
     bearer: Option<TypedHeader<Authorization<Bearer>>>,
 ) -> Result<(), ApiError> {
     tracing::debug!("start keep_alive");
-    let ip = extract_ip(&headers);
-    tracing::debug!(ip = ip, "caller");
+    let ip = data.ip_extractor.get(&headers);
+    tracing::debug!(ip = ip.as_ref(), "caller");
     return match bearer {
         None => {
             return Err(ApiError::NoSession());

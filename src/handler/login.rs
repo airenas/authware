@@ -46,7 +46,7 @@ pub async fn handler(
     if payload.user.is_none() || payload.pass.is_none() {
         return Err(ApiError::WrongUserPass());
     }
-    let ip = extract_ip(&headers);
+    let ip = data.ip_extractor.get(&headers);
 
     let now = Utc::now();
     let cfg = &data.config;
@@ -55,7 +55,7 @@ pub async fn handler(
 
     let pass = payload.pass.as_deref().unwrap_or("");
 
-    tracing::debug!(user = user, ip = ip, "call auth service login");
+    tracing::debug!(user = user, ip = ip.as_ref(), "call auth service login");
     let res = auth.login(user, pass).await?;
     tracing::trace!(user = user, "got result");
     tracing::trace!(user = user, "creating session");
@@ -66,7 +66,7 @@ pub async fn handler(
             &session_id,
             SessionData {
                 user: res.name.clone(),
-                ip,
+                ip: ip.to_string(),
                 valid_till: now.timestamp_millis() + cfg.session_timeout,
                 last_access: now.timestamp_millis(),
             },
@@ -89,15 +89,4 @@ fn generate_session() -> String {
     let mut session_id_bytes = [0u8; 128];
     rng.fill_bytes(&mut session_id_bytes);
     BASE64_URL_SAFE.encode(session_id_bytes)
-}
-
-pub fn extract_ip(headers: &HeaderMap) -> String {
-    let ips = headers
-        .get("x-forwarded-for")
-        .and_then(|header_value| header_value.to_str().ok());
-    tracing::trace!(ips = ?ips, "ips");
-    return ips
-        .and_then(|ip_list| ip_list.split(',').next())
-        .unwrap_or("")
-        .to_string();
 }

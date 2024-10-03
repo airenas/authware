@@ -9,7 +9,7 @@ use axum_extra::{
     TypedHeader,
 };
 
-use crate::{handler::login::extract_ip, model::service};
+use crate::model::service;
 
 use super::error::ApiError;
 
@@ -22,8 +22,8 @@ pub async fn handler(
         .get("X-Forwarded-Uri")
         .map(|h| h.to_str().unwrap_or("").to_string());
 
-    let ip = extract_ip(&headers);
-    tracing::info!(url = forwarded_uri, ip = ip, "auth");
+    let ip = data.ip_extractor.get(&headers);
+    tracing::info!(url = forwarded_uri, ip = ip.as_ref(), "auth");
     let session_id = match bearer {
         None => match forwarded_uri {
             Some(token) => parse_token_from_url(&token).unwrap_or_default(),

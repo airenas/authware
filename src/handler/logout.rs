@@ -6,7 +6,7 @@ use axum_extra::{
     TypedHeader,
 };
 
-use crate::{handler::login::extract_ip, model::service};
+use crate::model::service;
 
 use super::error::ApiError;
 
@@ -16,8 +16,8 @@ pub async fn handler(
     TypedHeader(Authorization(bearer)): TypedHeader<Authorization<Bearer>>,
 ) -> Result<(), ApiError> {
     let session_id = bearer.token();
-    let ip = extract_ip(&headers);
-    tracing::debug!(session_id = session_id, ip = ip, "logout");
+    let ip = data.ip_extractor.get(&headers);
+    tracing::debug!(session_id = session_id, ip = ip.as_ref(), "logout");
     data.store.remove(session_id).await?;
     tracing::trace!(session_id = session_id, "logout done");
     Ok(())

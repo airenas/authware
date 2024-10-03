@@ -6,7 +6,8 @@ use authware::store::encryptor::MagicEncryptor;
 use authware::store::memory::InMemorySessionStore;
 use authware::store::redis::RedisSessionStore;
 use authware::tls::cert::generate_certificates;
-use authware::{handler, shutdown_signal, AuthService, Encryptor, SessionStore};
+use authware::utils::ip_extractor;
+use authware::{handler, shutdown_signal, AuthService, Encryptor, IPExtractor, SessionStore};
 use axum::http::HeaderName;
 use axum_server::tls_rustls::RustlsConfig;
 use deadpool_redis::{Config, Runtime};
@@ -17,11 +18,10 @@ use std::time::Duration;
 
 use clap::Parser;
 use tower_http::cors::{Any, CorsLayer};
+use tower_http::timeout::TimeoutLayer;
 use tower_http::trace::TraceLayer;
-use tower_http::{limit::RequestBodyLimitLayer, timeout::TimeoutLayer};
 
 use axum::{
-    extract::DefaultBodyLimit,
     routing::{get, post},
     Router,
 };
@@ -52,6 +52,9 @@ struct Args {
     // data encryption key
     #[arg(long, env, default_value = "", required = true)]
     encryption_key: String,
+    // index of ip in x-forwarded-for header, -1 - the last, -2 - the one before the last
+    #[arg(long, env, default_value = "-2")]
+    ip_index: i16,
 }
 
 async fn main_int(args: Args) -> anyhow::Result<()> {
@@ -89,10 +92,13 @@ async fn main_int(args: Args) -> anyhow::Result<()> {
     log::warn!("Using sample users auth");
     let sample_auth: Box<dyn AuthService + Send + Sync> =
         Box::new(Sample::new(&args.sample_users)?);
+    let ip_extractor: Box<dyn IPExtractor + Send + Sync> =
+        Box::new(ip_extractor::Header::new(args.ip_index));
     let service_data = service::Data {
         config,
         store,
         auth_service: sample_auth,
+        ip_extractor,
     };
     let quarded_data = Arc::new(service_data);
 

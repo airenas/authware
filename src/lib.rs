@@ -2,8 +2,12 @@ pub mod auth;
 pub mod model;
 pub mod store;
 pub mod tls;
+pub mod utils;
+
+use std::borrow::Cow;
 
 use async_trait::async_trait;
+use axum::http::HeaderMap;
 use model::data::SessionData;
 use tokio::signal;
 
@@ -26,6 +30,10 @@ pub trait AuthService {
 pub trait Encryptor {
     fn encrypt(&self, data: &str) -> String;
     fn decrypt(&self, data: &str) -> anyhow::Result<String>;
+}
+
+pub trait IPExtractor {
+    fn get<'a>(&self, headers: &'a HeaderMap) -> Cow<'a, str>;
 }
 
 pub async fn shutdown_signal() {

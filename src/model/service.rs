@@ -1,4 +1,4 @@
-use crate::{AuthService, SessionStore};
+use crate::{AuthService, IPExtractor, SessionStore};
 
 use super::config::SessionConfig;
 
@@ -7,4 +7,5 @@ pub struct Data {
     pub config: SessionConfig,
     pub store: Box<dyn SessionStore + Send + Sync>,
     pub auth_service: Box<dyn AuthService + Send + Sync>,
+    pub ip_extractor: Box<dyn IPExtractor + Send + Sync>,
 }
