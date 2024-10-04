@@ -13,6 +13,8 @@ pub enum Error {
     WrongUserPass(),
     #[error("Expired password`")]
     ExpiredPass(),
+    #[error("No access`")]
+    NoAccess(),
     #[error(transparent)]
     Other(#[from] anyhow::Error),
 }

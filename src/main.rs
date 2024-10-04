@@ -55,6 +55,19 @@ struct Args {
     // index of ip in x-forwarded-for header, -1 - the last, -2 - the one before the last
     #[arg(long, env, default_value = "-2")]
     ip_index: i16,
+
+    // authentication ws url
+    #[arg(long, env, default_value = "", required = false)]
+    auth_ws_url: String,
+    // authentication ws basic auth user
+    #[arg(long, env, default_value = "", required = false)]
+    auth_ws_user: String,
+    // authentication ws basic auth pass
+    #[arg(long, env, default_value = "", required = false)]
+    auth_ws_pass: String,
+    // app code in authentication ws
+    #[arg(long, env, default_value = "", required = false)]
+    auth_app_code: String,
 }
 
 async fn main_int(args: Args) -> anyhow::Result<()> {
@@ -82,22 +95,21 @@ async fn main_int(args: Args) -> anyhow::Result<()> {
         Box::new(InMemorySessionStore::new())
     } else {
         log::info!("Using redis store");
-        let cfg = Config::from_url(args.redis_url);
+        let cfg = Config::from_url(args.redis_url.clone());
         let pool = cfg.create_pool(Some(Runtime::Tokio1))?;
         let encryptor: Box<dyn Encryptor + Send + Sync> =
             Box::new(MagicEncryptor::new(&args.encryption_key)?);
         Box::new(RedisSessionStore::new(pool, encryptor))
     };
 
-    log::warn!("Using sample users auth");
-    let sample_auth: Box<dyn AuthService + Send + Sync> =
-        Box::new(Sample::new(&args.sample_users)?);
+    let auth: Box<dyn AuthService + Send + Sync> = init_auth(&args).await?;
+
     let ip_extractor: Box<dyn IPExtractor + Send + Sync> =
         Box::new(ip_extractor::Header::new(args.ip_index));
     let service_data = service::Data {
         config,
         store,
-        auth_service: sample_auth,
+        auth_service: auth,
         ip_extractor,
     };
     let quarded_data = Arc::new(service_data);
@@ -142,6 +154,30 @@ async fn main_int(args: Args) -> anyhow::Result<()> {
 
     tracing::info!("Bye");
     Ok(())
+}
+
+async fn init_auth(args: &Args) -> anyhow::Result<Box<dyn AuthService + Send + Sync>> {
+    let mut auths: Vec<Box<dyn AuthService + Send + Sync>> = Vec::new();
+    if !args.sample_users.is_empty() {
+        tracing::warn!("Using sample auth");
+        auths.push(Box::new(Sample::new(&args.sample_users)?));
+    }
+    if !args.auth_ws_url.is_empty() {
+        tracing::info!("Using sample admin3ws auth");
+        auths.push(Box::new(authware::auth::admin3ws::Auth::new(
+            &args.auth_ws_url,
+            &args.auth_ws_user,
+            &args.auth_ws_pass,
+            &args.auth_app_code,
+        )?));
+    }
+    if auths.is_empty() {
+        return Err(anyhow::anyhow!("No auth method specified"));
+    }
+    if auths.len() == 1 {
+        return Ok(auths.pop().unwrap());
+    }
+    Ok(Box::new(authware::auth::combined::Auths::new(auths)?))
 }
 
 #[tokio::main(flavor = "multi_thread", worker_threads = 2)]

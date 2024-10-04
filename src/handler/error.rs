@@ -18,6 +18,8 @@ pub enum ApiError {
     ExpiredSession(),
     #[error("No session`")]
     NoSession(),
+    #[error("No access`")]
+    NoAccess(),
     #[error(transparent)]
     Other(#[from] anyhow::Error),
 }
@@ -62,6 +64,10 @@ impl IntoResponse for ApiError {
                 tracing::warn!("No session");
                 (StatusCode::UNAUTHORIZED, "No session".to_string())
             }
+            ApiError::NoAccess() => {
+                tracing::warn!("No access");
+                (StatusCode::UNAUTHORIZED, "No access".to_string())
+            }
         };
 
         (status, message).into_response()
@@ -74,6 +80,7 @@ impl From<auth::Error> for ApiError {
             auth::Error::WrongUserPass() => ApiError::WrongUserPass(),
             auth::Error::ExpiredPass() => ApiError::ExpiredPass(),
             auth::Error::Other(error) => ApiError::Other(error),
+            auth::Error::NoAccess() => ApiError::NoAccess(),
         }
     }
 }
