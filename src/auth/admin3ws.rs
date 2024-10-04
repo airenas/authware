@@ -81,8 +81,11 @@ impl AuthService for Auth {
         tracing::debug!(user = user, app = &self.app_code, "call roles");
         let roles_details = self.make_call(&self.make_roles_url(user)).await?;
         let roles: Roles = process_body(&roles_details)?;
-        tracing::debug!(len = roles.roles.len(), "got roles");
-        if roles.roles.is_empty() {
+        tracing::debug!(
+            len = roles.roles.as_ref().map_or(0, |vec| vec.len()),
+            "got roles"
+        );
+        if roles.roles.as_ref().map_or(true, |vec| vec.is_empty()) {
             return Err(auth::Error::NoAccess());
         }
         map_res(user_data, roles)
@@ -90,36 +93,46 @@ impl AuthService for Auth {
 }
 
 fn map_res(user_data: User, roles: Roles) -> Result<auth::User, auth::Error> {
-    let roles_str: Vec<String> = roles.roles.iter().map(|r| r.name.clone()).collect();
+    let roles_str: Vec<String> = match roles.roles {
+        Some(ref roles) => roles.iter().map(|r| r.name.clone()).collect(),
+        None => Vec::new(), // or vec![] to create an empty Vec<String>
+    };
+    let dep = user_data
+        .organization_unit
+        .as_ref() // Convert Option<Department> to Option<&Department>
+        .map_or_else(|| "", |dept| &dept.name);
     let res = auth::User {
         name: user_data.first_name + " " + &user_data.last_name,
-        department: user_data.organization_unit.name,
+        department: dep.to_string(),
         roles: roles_str,
     };
     Ok(res)
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, PartialEq)]
 struct User {
+    #[serde(rename = "firstName")]
     first_name: String,
+    #[serde(rename = "lastName")]
     last_name: String,
-    organization_unit: Department,
+    #[serde(rename = "organizationUnit")]
+    organization_unit: Option<Department>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, PartialEq)]
 struct Department {
     name: String,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, PartialEq)]
 struct Role {
     name: String,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, PartialEq)]
 struct Roles {
     #[serde(rename = "role")]
-    roles: Vec<Role>,
+    roles: Option<Vec<Role>>,
 }
 
 fn process_body<T>(response_body: &str) -> Result<T, auth::Error>
@@ -127,8 +140,8 @@ where
     T: DeserializeOwned,
 {
     if response_body.starts_with("<") {
-        let res: T =
-            from_str(response_body).map_err(|e| anyhow::anyhow!("can't deserialize: {:?}", e))?;
+        let res = from_str::<T>(response_body)
+            .map_err(|e| anyhow::anyhow!("can't deserialize: {:?}", e))?;
         return Ok(res);
     }
     let res_code: i32 = response_body
@@ -145,5 +158,75 @@ fn map_err_codes(res_code: i32) -> auth::Error {
         2 => auth::Error::ExpiredPass(),
         3 => auth::Error::ExpiredPass(),
         _ => auth::Error::Other(anyhow::anyhow!("Auth Service error: {}", res_code)),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use test_case::test_case;
+
+    #[test_case(r#"<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<user>
+  <firstName>oooo</firstName>
+  <lastName>aaaa</lastName>
+  <phone>+37000000000</phone>
+</user>"#,
+  User { first_name: "oooo".to_string(), last_name: "aaaa".to_string(), organization_unit: None}; "no dep")]
+    #[test_case(r#"<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<user>
+  <firstName>oooo</firstName>
+  <lastName>aaaa</lastName>
+  <phone>+37000000000</phone>
+    <organizationUnit>
+        <name>dep</name>
+        <other>dep</other>
+    </organizationUnit>
+</user>"#,
+  User { first_name: "oooo".to_string(), last_name: "aaaa".to_string(), organization_unit: Some(Department { name: "dep".to_string() })}; "dep")]
+    fn test_parse_user(input: &str, wanted: User) {
+        let result: User = process_body(input).unwrap();
+        assert_eq!(result, wanted);
+    }
+
+    #[test_case("aaa", auth::Error::Other(anyhow::anyhow!("can't parse to int aaa: ParseIntError {{ kind: InvalidDigit }}")); "not int")]
+    #[test_case("1", auth::Error::WrongUserPass(); "wrong user")]
+    #[test_case("2", auth::Error::ExpiredPass(); "expired")]
+    #[test_case("12", auth::Error::Other(anyhow::anyhow!("Auth Service error: 12")); "other")]
+    fn test_parse_user_err(input: &str, wanted: auth::Error) {
+        let result = process_body::<User>(input);
+        assert_eq!(result.err().unwrap().to_string(), wanted.to_string());
+    }
+
+    #[test_case(r#"<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<roles user="dev" application="dev">
+</roles>
+"#,
+  Roles { roles: None}; "empty")]
+    #[test_case(r#"<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<roles user="dev" application="dev">
+<role>
+  <name>R1</name>
+</role>
+</roles>
+"#,
+Roles { roles: Some(vec![Role{name: "R1".to_string()}]) }; "one")]
+    #[test_case(r#"<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<roles user="dev" application="dev">
+<role>
+  <name>R1</name>
+</role>
+<role>
+  <name>R2</name>
+</role>
+<role>
+  <name>R3</name>
+</role>
+</roles>
+"#,
+Roles { roles: Some(vec![Role { name: "R1".to_string() }, Role { name: "R2".to_string() }, Role { name: "R3".to_string() }]) }; "several")]
+    fn test_parse_roles(input: &str, wanted: Roles) {
+        let result: Roles = process_body(input).unwrap();
+        assert_eq!(result, wanted);
     }
 }
