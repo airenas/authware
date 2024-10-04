@@ -1,0 +1,61 @@
+services:
+  proxy:
+    image: traefik:2.11
+    command:
+      - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=false"
+    volumes:
+      - "/var/run/docker.sock:/var/run/docker.sock:ro"
+      - ./traefik:/etc/traefik:ro
+    ports:
+      - "${port}:443"
+      - "8080:8080"
+
+  authware:
+    image: airenas/authware:${authware_version}
+    environment:
+      - RUST_LOG=debug,tower_http=warn,h2=warn,rustls=warn
+      - SESSION_TIMEOUT=1h
+      - INACTIVITY_TIMEOUT=5m
+      - SAMPLE_USERS=${sample_users}
+      - HOST=authware
+      - REDIS_URL=redis://redis:6379
+      - ENCRYPTION_KEY=${data_encryption_key}
+    labels:
+     - "traefik.enable=true"
+     - "traefik.http.routers.authware.rule=PathPrefix(`/auth`)"
+     - "traefik.http.routers.authware.entrypoints=websecure"
+     - "traefik.http.routers.authware.tls=true"
+     - "traefik.http.services.authware.loadbalancer.server.port=8000"
+     - "traefik.http.services.authware.loadbalancer.server.scheme=https"
+     - "traefik.http.services.authware.loadbalancer.serversTransport=skip-verify-tls-transport@file"
+     ## configure authware forwardauth
+     - "traefik.http.middlewares.authware.forwardauth.address=https://authware:8000/auth"  
+     - "traefik.http.middlewares.authware.forwardauth.trustForwardHeader=true"
+     - "traefik.http.middlewares.authware.forwardauth.tls.insecureSkipVerify=true"
+
+  redis:
+    image: redis:7.2.5-alpine3.19
+
+  whoami-public:
+    image: traefik/whoami
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.whoami-public.rule=PathPrefix(`/public`)"
+      - "traefik.http.routers.whoami-public.middlewares=whoami-public"
+      - "traefik.http.middlewares.whoami-public.stripprefix.prefixes=/public"
+      - "traefik.http.routers.whoami-public.entrypoints=websecure"
+      - "traefik.http.routers.whoami-public.tls=true"
+      - "traefik.http.services.whoami-public.loadbalancer.server.port=80"
+
+  whoami-private:
+    image: traefik/whoami
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.whoami-private.rule=PathPrefix(`/private`)"
+      ## add auth here
+      - "traefik.http.routers.whoami-private.middlewares=whoami-private,authware@docker"
+      - "traefik.http.middlewares.whoami-private.stripprefix.prefixes=/private"
+      - "traefik.http.routers.whoami-private.entrypoints=websecure"
+      - "traefik.http.routers.whoami-private.tls=true"
+      - "traefik.http.services.whoami-private.loadbalancer.server.port=80"

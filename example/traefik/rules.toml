@@ -1,0 +1,6 @@
+################################################################
+# Dynamic configuration
+################################################################
+[http]
+[http.serversTransports.skip-verify-tls-transport]
+  insecureSkipVerify = true

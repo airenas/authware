@@ -15,12 +15,80 @@ A custom middleware for Traefik that provides authentication functionality by in
 - **Service runs only under TLS**: for secure traefik `<->` authware communication
 - **Packed in docker**: uses the smallest possible image to run the rust app.
 - **One cmd to run the sample and ready to test**: did you try to test other traefik middlewares? Authelia? Then you should know what it means to try it...
-- **Designed for an easy adding of new authentication backends or storages** implement `trait SessionStore` (4 methods), `trait AuthService` (one method), and configure them in main.
+- **Designed for an easy adding of new authentication backends or storages**: implement `trait SessionStore` (4 methods), `trait AuthService` (one method), and configure them in the `main`.
 
 ## Usage
 
-pending...
+Minimal example using docker.
 
+### Start authentication proxy example
+
+Configure port in `.env` if needed. Default is `8000`. 
+
+```bash
+cd example
+docker compose up
+```
+It will start traefik proxy listening for https request on the configureed port. Endpoints:
+- `/public` - not protected service
+- `/private` - protected by authware
+- `/auth` - authware endpoint
+
+
+### Test
+
+#### public endpoint
+```bash
+curl https://localhost:8000/public -k -i
+```
+```bash
+HTTP/2 200 
+```
+#### private endpoint - protected by authware
+```bash
+curl https://localhost:8000/private -k -i
+```
+```bash
+HTTP/2 401 
+No session⏎  
+```
+
+### login
+```bash
+curl -X POST https://localhost:8000/auth/login -k -i -H "" -H "Content-Type: application/json" -d '{"user": "admin", "pass": "olia1234"}'
+```
+```json
+HTTP/2 200 
+
+{"session_id":"MVWmFIets6px78NA7sDVeVO7f_NLWtBHwbD3vtPt8YljGeD-heF0eSPO7NOyuTKPOt8PZa1n73hsaDWJOhKvi_qSatIxeSmBQxNgWVWjQiPiw8d0WoW9rlRF_qtn_3FWUvdnrYKYF0U-wHMDBZZqbHsLxre4KGXvjx-mAHNQUWg=","user":{"name":"admin","department":"IT","roles":["USER"]}}
+```
+
+#### private endpoint - again
+```bash
+curl https://localhost:8000/private -k -i -H "Authorization: bearer MVWmFIets6px78NA7sDVeVO7f_NLWtBHwbD3vtPt8YljGeD-heF0eSPO7NOyuTKPOt8PZa1n73hsaDWJOhKvi_qSatIxeSmBQxNgWVWjQiPiw8d0WoW9rlRF_qtn_3FWUvdnrYKYF0U-wHMDBZZqbHsLxre4KGXvjx-mAHNQUWg="
+```
+```bash
+HTTP/2 200 
+```
+#### keep alive
+To mark a session as in use for inactivity timeout.
+```bash
+curl -X POST https://localhost:8000/auth/kep-alive -k -i -H "Authorization: bearer MVWmFIets6px78NA7sDVeVO7f_NLWtBHwbD3vtPt8YljGeD-heF0eSPO7NOyuTKPOt8PZa1n73hsaDWJOhKvi_qSatIxeSmBQxNgWVWjQiPiw8d0WoW9rlRF_qtn_3FWUvdnrYKYF0U-wHMDBZZqbHsLxre4KGXvjx-mAHNQUWg="
+```
+```bash
+HTTP/2 200 
+```
+#### logout
+```bash
+curl -X POST https://localhost:8000/auth/logout -k -i -H "Authorization: bearer MVWmFIets6px78NA7sDVeVO7f_NLWtBHwbD3vtPt8YljGeD-heF0eSPO7NOyuTKPOt8PZa1n73hsaDWJOhKvi_qSatIxeSmBQxNgWVWjQiPiw8d0WoW9rlRF_qtn_3FWUvdnrYKYF0U-wHMDBZZqbHsLxre4KGXvjx-mAHNQUWg="
+```
+```bash
+HTTP/2 200 
+```
+#### clean exaple
+```bash
+docker compose down --rmi all
+```
 
 ---
 ### License
