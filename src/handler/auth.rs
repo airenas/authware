@@ -1,8 +1,7 @@
-use std::sync::Arc;
+use std::{borrow::Cow, sync::Arc};
 
 use axum::{extract::State, http::HeaderMap};
 use chrono::Utc;
-use url::Url;
 
 use axum_extra::{
     headers::{authorization::Bearer, Authorization},
@@ -20,23 +19,28 @@ pub async fn handler(
 ) -> Result<(), ApiError> {
     let forwarded_uri = headers
         .get("X-Forwarded-Uri")
-        .map(|h| h.to_str().unwrap_or("").to_string());
+        .map(|h| h.to_str().unwrap_or(""));
 
     let ip = data.ip_extractor.get(&headers);
     tracing::info!(url = forwarded_uri, ip = ip.as_ref(), "auth");
-    let session_id = match bearer {
+    let session_id = match bearer.as_ref() {
         None => match forwarded_uri {
-            Some(token) => parse_token_from_url(&token).unwrap_or_default(),
+            Some(token) => Cow::Borrowed(parse_token_from_url(token).unwrap_or_default()),
             None => {
                 return Err(ApiError::NoSession());
             }
         },
-        Some(val) => val.token().to_string(),
+        Some(val) => Cow::Borrowed(val.token()),
     };
-    tracing::debug!(session_id = session_id, "auth");
+    tracing::debug!(session_id = session_id.as_ref(), "auth");
     let store = &data.store;
     let res = store.get(&session_id).await?;
-    tracing::debug!(session_id = session_id, user = res.user, ip = res.ip, "got");
+    tracing::debug!(
+        session_id = session_id.as_ref(),
+        user = res.user,
+        ip = res.ip,
+        "got"
+    );
     res.check_ip(&ip)?;
     let now = Utc::now().timestamp_millis();
     res.check_expired(now)?;
@@ -45,14 +49,18 @@ pub async fn handler(
     Ok(())
 }
 
-fn parse_token_from_url(url: &str) -> Option<String> {
-    tracing::debug!(url = url, "parse_token_from_url");
-    let parsed_url = Url::parse(&format!("http://localhost{}", url)).ok()?;
-    tracing::debug!("parsed");
-    parsed_url
-        .query_pairs()
-        .find(|(key, _)| key == "token")
-        .map(|(_, value)| value.to_string())
+fn parse_token_from_url(url: &str) -> Option<&str> {
+    if let Some(pos) = url.find('?') {
+        let query = &url[pos + 1..];
+        for param in query.split('&') {
+            if let Some((key, value)) = param.split_once('=') {
+                if key == "token" {
+                    return Some(value);
+                }
+            }
+        }
+    }
+    None
 }
 
 #[cfg(test)]
@@ -62,10 +70,10 @@ mod tests {
 
     #[test_case("",  None; "empty")]
     #[test_case("/olia", None; "no token")]
-    #[test_case("/olia?token=aaaaa", Some("aaaaa".to_string()); "parsed")]
+    #[test_case("/olia?token=aaaaa", Some("aaaaa"); "parsed")]
     #[test_case("/olia?vvv=aaaaa", None; "none")]
-    #[test_case("/olia?aaaa=nnnnnn&token=aaaaa", Some("aaaaa".to_string()); "long")]
-    fn test_parse_token_from_url(input: &str, expected: Option<String>) {
+    #[test_case("/olia?aaaa=nnnnnn&token=aaaaa", Some("aaaaa"); "long")]
+    fn test_parse_token_from_url(input: &str, expected: Option<&str>) {
         let actual = parse_token_from_url(input);
         assert_eq!(expected, actual);
     }

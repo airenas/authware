@@ -76,9 +76,9 @@ pub async fn handler(
     let response = Response {
         session_id,
         user: User {
-            name: res.name.clone(),
-            department: res.department.clone(),
-            roles: res.roles.clone(),
+            name: res.name,
+            department: res.department,
+            roles: res.roles,
         },
     };
     Ok(Json(response))

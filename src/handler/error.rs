@@ -1,3 +1,5 @@
+use std::borrow::Cow;
+
 use axum::response::IntoResponse;
 use reqwest::StatusCode;
 use thiserror::Error;
@@ -26,47 +28,47 @@ pub enum ApiError {
 
 impl IntoResponse for ApiError {
     fn into_response(self) -> axum::response::Response {
-        let (status, message) = match self {
+        let (status, message): (StatusCode, Cow<'static, str>) = match self {
             ApiError::BadRequest(msg, details) => {
                 tracing::warn!("{}: {}", msg, details);
-                (StatusCode::BAD_REQUEST, msg)
+                (StatusCode::BAD_REQUEST, Cow::Owned(msg))
             }
             ApiError::Server(msg) => {
                 tracing::error!("{}", msg);
                 (
                     StatusCode::INTERNAL_SERVER_ERROR,
-                    "Internal Server Error".to_string(),
+                    Cow::Borrowed("Internal Server Error"),
                 )
             }
             ApiError::Other(err) => {
                 tracing::error!("{}", err);
                 (
                     StatusCode::INTERNAL_SERVER_ERROR,
-                    "Internal Server Error".to_string(),
+                    Cow::Borrowed("Internal Server Error"),
                 )
             }
             ApiError::WrongUserPass() => {
                 tracing::warn!("Wrong user or password");
                 (
                     StatusCode::UNAUTHORIZED,
-                    "Wrong user or password".to_string(),
+                    Cow::Borrowed("Wrong user or password"),
                 )
             }
             ApiError::ExpiredPass() => {
                 tracing::warn!("Expired pass");
-                (StatusCode::UNAUTHORIZED, "Expired password".to_string())
+                (StatusCode::UNAUTHORIZED, Cow::Borrowed("Expired password"))
             }
             ApiError::ExpiredSession() => {
                 tracing::warn!("Expired session");
-                (StatusCode::UNAUTHORIZED, "Session expired".to_string())
+                (StatusCode::UNAUTHORIZED, Cow::Borrowed("Session expired"))
             }
             ApiError::NoSession() => {
                 tracing::warn!("No session");
-                (StatusCode::UNAUTHORIZED, "No session".to_string())
+                (StatusCode::UNAUTHORIZED, Cow::Borrowed("No session"))
             }
             ApiError::NoAccess() => {
                 tracing::warn!("No access");
-                (StatusCode::UNAUTHORIZED, "No access".to_string())
+                (StatusCode::UNAUTHORIZED, Cow::Borrowed("No access"))
             }
         };
 
