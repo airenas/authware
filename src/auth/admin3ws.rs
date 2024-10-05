@@ -1,5 +1,6 @@
 use std::time::Duration;
 
+use again::RetryPolicy;
 use async_trait::async_trait;
 use reqwest::Client;
 use serde::{de::DeserializeOwned, Deserialize};
@@ -7,7 +8,6 @@ use serde_xml_rs::from_str;
 use urlencoding::encode;
 
 use crate::{model::auth, AuthService};
-
 pub struct Auth {
     ws_url: String,
     ws_user: String,
@@ -50,7 +50,7 @@ impl Auth {
         )
     }
 
-    async fn make_call(&self, url: &str) -> anyhow::Result<String> {
+    async fn make_call_int(&self, url: &str) -> anyhow::Result<String> {
         let response = self
             .client
             .get(url)
@@ -67,6 +67,16 @@ impl Auth {
             .map_err(|e| anyhow::anyhow!("can't get body: {:?}", e))?;
         tracing::trace!(response = response_body, "response");
         Ok(response_body)
+    }
+
+    async fn make_call(&self, url: &str) -> anyhow::Result<String> {
+        let policy = RetryPolicy::exponential(Duration::from_millis(200))
+            .with_max_retries(3)
+            .with_jitter(true);
+        policy
+            .retry(|| self.make_call_int(url))
+            .await
+            .map_err(|e| anyhow::anyhow!("Failed after retries: {:?}", e))
     }
 }
 
@@ -94,7 +104,7 @@ impl AuthService for Auth {
 
 fn map_res(user_data: User, roles: Roles) -> Result<auth::User, auth::Error> {
     let roles_str: Vec<String> = match roles.roles {
-        Some(ref roles) => roles.iter().map(|r| r.name.clone()).collect(),
+        Some(roles) => roles.into_iter().map(|r| r.name).collect(),
         None => Vec::new(), // or vec![] to create an empty Vec<String>
     };
     let dep = user_data
