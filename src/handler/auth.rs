@@ -46,6 +46,7 @@ pub async fn handler(
     res.check_expired(now)?;
     let config = &data.config;
     res.check_inactivity(now, config.inactivity)?;
+    store.mark_last_used(session_id.as_ref(), now).await?;
     Ok(())
 }
 
