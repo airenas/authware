@@ -93,7 +93,7 @@ impl AuthService for Auth {
 
         let r_url = self.make_roles_url(user);
         tracing::debug!(url = r_url, "call roles");
-        let roles_details = self.make_call(&&r_url).await?;
+        let roles_details = self.make_call(&r_url).await?;
         let roles: Roles = process_body(&roles_details)?;
         tracing::debug!(
             len = roles.roles.as_ref().map_or(0, |vec| vec.len()),
