@@ -56,7 +56,7 @@ impl IntoResponse for ApiError {
             }
             ApiError::ExpiredPass() => {
                 tracing::warn!("Expired pass");
-                (StatusCode::UNAUTHORIZED, Cow::Borrowed("Expired password"))
+                (StatusCode::UNAUTHORIZED, Cow::Borrowed("Password expired"))
             }
             ApiError::ExpiredSession() => {
                 tracing::warn!("Expired session");
