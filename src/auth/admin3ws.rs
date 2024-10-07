@@ -83,19 +83,19 @@ impl Auth {
 #[async_trait]
 impl AuthService for Auth {
     async fn login(&self, user: &str, pass: &str) -> Result<auth::User, auth::Error> {
-        tracing::debug!(
-            url = self.make_details_url(user, "****"),
+        tracing::trace!(
+            url = self.make_details_url(user, "----"),
             "call auth details"
         );
         let user_details = self.make_call(&self.make_details_url(user, pass)).await?;
         let user_data: User = process_body(&user_details)?;
-        tracing::debug!("got user");
+        tracing::trace!("got user");
 
         let r_url = self.make_roles_url(user);
-        tracing::debug!(url = r_url, "call roles");
+        tracing::trace!(url = r_url, "call roles");
         let roles_details = self.make_call(&r_url).await?;
         let roles: Roles = process_body(&roles_details)?;
-        tracing::debug!(
+        tracing::trace!(
             len = roles.roles.as_ref().map_or(0, |vec| vec.len()),
             "got roles"
         );
