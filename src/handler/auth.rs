@@ -7,6 +7,7 @@ use axum_extra::{
     headers::{authorization::Bearer, Authorization},
     TypedHeader,
 };
+use urlencoding::decode;
 
 use crate::model::service;
 
@@ -25,7 +26,7 @@ pub async fn handler(
     tracing::info!(url = forwarded_uri, ip = ip.as_ref(), "auth");
     let session_id = match bearer.as_ref() {
         None => match forwarded_uri {
-            Some(token) => Cow::Borrowed(parse_token_from_url(token).unwrap_or_default()),
+            Some(token) => parse_token_from_url(token).unwrap_or(Cow::Borrowed("")),
             None => {
                 return Err(ApiError::NoSession());
             }
@@ -50,13 +51,13 @@ pub async fn handler(
     Ok(())
 }
 
-fn parse_token_from_url(url: &str) -> Option<&str> {
+fn parse_token_from_url(url: &str) -> Option<Cow<str>> {
     if let Some(pos) = url.find('?') {
         let query = &url[pos + 1..];
         for param in query.split('&') {
             if let Some((key, value)) = param.split_once('=') {
                 if key == "token" {
-                    return Some(value);
+                    return decode(value).ok();
                 }
             }
         }
@@ -71,10 +72,11 @@ mod tests {
 
     #[test_case("",  None; "empty")]
     #[test_case("/olia", None; "no token")]
-    #[test_case("/olia?token=aaaaa", Some("aaaaa"); "parsed")]
+    #[test_case("/olia?token=aaaaa", Some(Cow::Borrowed("aaaaa")); "parsed")]
     #[test_case("/olia?vvv=aaaaa", None; "none")]
-    #[test_case("/olia?aaaa=nnnnnn&token=aaaaa", Some("aaaaa"); "long")]
-    fn test_parse_token_from_url(input: &str, expected: Option<&str>) {
+    #[test_case("/olia?aaaa=nnnnnn&token=aaaaa", Some(Cow::Borrowed("aaaaa")); "long")]
+    #[test_case("/olia?token=aaaaa%3D", Some(Cow::Borrowed("aaaaa=")); "decode")]
+    fn test_parse_token_from_url(input: &str, expected: Option<Cow<str>>) {
         let actual = parse_token_from_url(input);
         assert_eq!(expected, actual);
     }
