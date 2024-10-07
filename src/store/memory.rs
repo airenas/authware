@@ -1,18 +1,72 @@
 use async_trait::async_trait;
 use chrono::Utc;
-use std::{collections::HashMap, sync::Arc};
-use tokio::sync::RwLock;
+use std::{
+    collections::{BTreeSet, HashMap},
+    sync::Arc,
+};
+use tokio::sync::Mutex;
 
 use crate::{model, SessionData, SessionStore};
 
+struct DB {
+    store: HashMap<String, SessionData>,
+    expirations: BTreeSet<(i64, String)>,
+}
+
 pub struct InMemorySessionStore {
-    store: Arc<RwLock<HashMap<String, SessionData>>>,
+    store: Arc<Mutex<DB>>,
+}
+
+impl DB {
+    fn new() -> Self {
+        DB {
+            store: HashMap::new(),
+            expirations: BTreeSet::new(),
+        }
+    }
+    fn insert(&mut self, session_id: &str, data: SessionData) {
+        self.expirations
+            .insert((data.valid_till, session_id.to_string()));
+        self.store.insert(session_id.to_string(), data);
+        self.remove_expired();
+    }
+    fn get(&mut self, session_id: &str) -> Option<&SessionData> {
+        self.remove_expired();
+        self.store.get(session_id)
+    }
+    fn get_mut(&mut self, session_id: &str) -> Option<&mut SessionData> {
+        self.remove_expired();
+        self.store.get_mut(session_id)
+    }
+    fn remove(&mut self, session_id: &str) -> Option<SessionData> {
+        self.store.remove(session_id)
+        // it leaves the expired entry in the expirations set, it will be removed after expiration
+    }
+
+    fn remove_expired_int(&mut self, now: i64) {
+        let mut to_remove = Vec::new();
+        for (expiry_time, key) in &self.expirations {
+            if *expiry_time > now {
+                break;
+            }
+            to_remove.push((*expiry_time, key.clone()));
+        }
+        for (expiry_time, key) in to_remove {
+            self.store.remove(&key);
+            self.expirations.remove(&(expiry_time, key));
+        }
+    }
+
+    fn remove_expired(&mut self) {
+        let now = Utc::now().timestamp_millis();
+        self.remove_expired_int(now);
+    }
 }
 
 impl InMemorySessionStore {
     pub fn new() -> Self {
         InMemorySessionStore {
-            store: Arc::new(RwLock::new(HashMap::new())),
+            store: Arc::new(Mutex::new(DB::new())),
         }
     }
 }
@@ -27,18 +81,13 @@ impl Default for InMemorySessionStore {
 impl SessionStore for InMemorySessionStore {
     async fn add(&self, session_id: &str, data: SessionData) -> Result<(), model::store::Error> {
         tracing::trace!("Adding session: {}", session_id);
-        let mut store = self
-            .store
-            .write().await;
-        check_remove_sessions(&mut store);
-        store.insert(session_id.to_string(), data);
+        let mut store = self.store.lock().await;
+        store.insert(session_id, data);
         Ok(())
     }
 
     async fn get(&self, session_id: &str) -> Result<SessionData, model::store::Error> {
-        let store = self
-            .store
-            .read().await;
+        let mut store = self.store.lock().await;
         match store.get(session_id) {
             Some(data) => Ok(data.clone()),
             None => Err(model::store::Error::NoSession()),
@@ -46,18 +95,14 @@ impl SessionStore for InMemorySessionStore {
     }
 
     async fn remove(&self, session_id: &str) -> Result<(), model::store::Error> {
-        let mut store = self
-            .store
-            .write().await;
+        let mut store = self.store.lock().await;
         match store.remove(session_id) {
             Some(_) => Ok(()),
             None => Err(model::store::Error::NoSession()),
         }
     }
     async fn mark_last_used(&self, session_id: &str, now: i64) -> Result<(), model::store::Error> {
-        let mut store = self
-            .store
-            .write().await;
+        let mut store = self.store.lock().await;
         match store.get_mut(session_id) {
             Some(data) => {
                 data.last_access = now;
@@ -68,15 +113,60 @@ impl SessionStore for InMemorySessionStore {
     }
 }
 
-fn check_remove_sessions(store: &mut HashMap<String, SessionData>) {
-    let now = Utc::now().timestamp_millis();
+#[cfg(test)]
+mod tests {
+    use super::*;
 
-    store.retain(|key, session_data| {
-        if session_data.valid_till <= now {
-            tracing::trace!("remove session: {}", key);
-            false
-        } else {
-            true
+    fn _session_data(at: i64) -> SessionData {
+        SessionData {
+            user: "test".to_string(),
+            ip: "".to_string(),
+            valid_till: at,
+            last_access: 20,
         }
-    });
+    }
+
+    #[test]
+    fn test_db_add() {
+        let mut db = DB::new();
+        let session_id = "test";
+        let data = _session_data(Utc::now().timestamp_millis() + 1000);
+        db.insert(session_id, data.clone());
+        assert_eq!(db.store.len(), 1);
+        assert_eq!(db.expirations.len(), 1);
+        assert_eq!(db.store.get(session_id), Some(&data));
+    }
+
+    #[test]
+    fn test_db_add_expired() {
+        let mut db = DB::new();
+        let session_id = "test";
+        let data = _session_data(Utc::now().timestamp_millis() - 1000);
+        db.insert(session_id, data.clone());
+        assert_eq!(db.store.len(), 0);
+        assert_eq!(db.expirations.len(), 0);
+        assert_eq!(db.store.get(session_id), None);
+    }
+
+    #[test]
+    fn test_db_get_expired() {
+        let mut db = DB::new();
+        let session_id = "test";
+        let data = _session_data(Utc::now().timestamp_millis() + 1000);
+        db.insert(session_id, data.clone());
+        assert_eq!(db.store.len(), 1);
+        db.remove_expired_int(Utc::now().timestamp_millis() + 1001);
+        assert_eq!(db.store.get(session_id), None);
+    }
+
+    #[test]
+    fn test_db_remove() {
+        let mut db = DB::new();
+        let session_id = "test";
+        let data = _session_data(Utc::now().timestamp_millis() + 1000);
+        db.insert(session_id, data.clone());
+        assert_eq!(db.store.len(), 1);
+        db.remove(session_id);
+        assert_eq!(db.store.get(session_id), None);
+    }
 }
