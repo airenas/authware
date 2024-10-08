@@ -1,7 +1,7 @@
 #########################################################################################
 ## docker will invoke this file from ../.. dir in order to access code
 #########################################################################################
-FROM rust:1.79-buster AS builder
+FROM rust:1.81-bullseye AS builder
 
 ARG BUILD_VERSION=0.1
 
