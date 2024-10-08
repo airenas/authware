@@ -41,7 +41,7 @@ jobs:
         continue-on-error: true 
 
       - name: Coverage 
-        run: cargo tarpaulin --verbose --all-features --workspace --timeout 120 --out xml
+        run: cargo tarpaulin --bins --lib --verbose --all-features --workspace --timeout 120 --out xml
 
       - name: Upload to codecov.io
         uses: codecov/codecov-action@v2
