@@ -5,15 +5,19 @@ run/authware:
 	RUST_LOG=$(log) cargo run --bin authware -- --redis-url=redis://localhost:6380 --encryption-key=1234567890123456asdasds
 .PHONY: run/authware
 ###############################################################################
+run/authware/inmemory:
+	RUST_LOG=$(log) cargo run --bin authware -- --encryption-key=1234567890123456asdasds
+.PHONY: run/authware
+###############################################################################
 build/local: 
 	cargo build --release
 .PHONY: build/local
 ###############################################################################
 test/unit:
-	RUST_LOG=DEBUG cargo test --no-fail-fast
+	RUST_LOG=DEBUG cargo test --bins --lib --no-fail-fast
 .PHONY: test/unit
 test/coverage:
-	cargo tarpaulin --ignore-tests
+	cargo tarpaulin --lib --bins --ignore-tests
 .PHONY: test/coverage
 .PHONY: test/unit	
 test/lint:
@@ -35,6 +39,11 @@ install/checks:
 docker/%/build: 
 	cd build/$* && $(MAKE) dbuild
 .PHONY: docker/*/build	
+###############################################################################
+## run integration tests
+test/integration: 
+	cd tests && ( $(MAKE) -j1 test/integration clean || ( $(MAKE) clean; exit 1; ))
+.PHONY: test/integration
 ###############################################################################
 .EXPORT_ALL_VARIABLES:
 

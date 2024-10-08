@@ -123,7 +123,7 @@ async fn main_int(args: Args) -> anyhow::Result<()> {
         ]);
 
     let app = Router::new()
-        .route("/live", get(handler::live::handler))
+        .route("/auth/live", get(handler::live::handler))
         .route("/auth/login", post(handler::login::handler))
         .route("/auth/logout", post(handler::logout::handler))
         .route("/auth/keep-alive", post(handler::keep_alive::handler))

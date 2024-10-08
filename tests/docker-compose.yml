@@ -1,0 +1,28 @@
+services:
+  authware:
+    image: airenas/authware:${authware_version}
+    environment:
+      - RUST_LOG=debug,tower_http=warn,h2=warn,rustls=warn
+      - SESSION_TIMEOUT=10m
+      - INACTIVITY_TIMEOUT=1m
+      - SAMPLE_USERS=admin:admin
+      - HOST=authware
+      - REDIS_URL=redis://redis:6379
+      - ENCRYPTION_KEY=cheemueZu8aetheighooXae6Boh7as
+
+  redis:
+    image: redis:7.2.5-alpine3.19
+
+  integration-test:
+    build:
+      context: .
+      dockerfile: ./Dockerfile.test
+    depends_on:
+      - authware
+      - redis
+    environment:
+      - AUTH_SERVICE_URL=https://authware:8000/auth
+    volumes:
+      - ../:/src/
+    command: test --test integration_test
+

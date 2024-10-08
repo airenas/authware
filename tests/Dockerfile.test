@@ -1,0 +1,12 @@
+#########################################################################################
+## docker will invoke this file from ../ dir in order to access the code
+#########################################################################################
+FROM rust:1.79-buster AS test-runner
+
+ARG BUILD_VERSION=0.1
+
+WORKDIR /src/
+
+ENTRYPOINT ["cargo"]
+
+CMD ["test"]

@@ -12,7 +12,6 @@ tokio-util = { version = "0.7", features = ["rt"] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = { version = "1.0", features = ["raw_value"] }
 chrono = "0.4"
-# reqwest = { version = "0.12", default-features = false, features = ["rustls-tls", "cookies", "trust-dns", "multipart", "stream", "json"] }
 rand = "0.8"
 async-trait = "0.1"
 anyhow = "1.0"
@@ -30,7 +29,7 @@ humantime = "2.1"
 rcgen = "0.13"
 rustls = "0.23"
 tokio-rustls = "0.26"
-reqwest = "0.12"
+reqwest = { version = "0.12", features = [] }
 axum-server = { version = "0.7", features = ["tls-rustls"] }
 deadpool-redis = "0.18"
 magic-crypt = "3.1"
@@ -40,6 +39,7 @@ again = { version = "0.1", features = ["rand"] }
 
 [dev-dependencies]
 test-case = "3.3"
+reqwest = { version = "0.12", features = ["json"] }
 
 # [lib]
 # name = "authware"
