@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use async_trait::async_trait;
 
-use crate::{model::auth, AuthService};
+use crate::{model::auth, utils::secret_str::SecretString, AuthService};
 
 pub struct Sample {
     users: HashMap<String, auth::User>,
@@ -58,9 +58,9 @@ fn parse_user_pass(user_pass_pairs: &str) -> anyhow::Result<HashMap<String, Stri
 
 #[async_trait]
 impl AuthService for Sample {
-    async fn login(&self, user: &str, pass: &str) -> Result<auth::User, auth::Error> {
+    async fn login(&self, user: &str, pass: &SecretString) -> Result<auth::User, auth::Error> {
         match self.passwords.get(user) {
-            Some(stored_pass) if stored_pass == pass => {
+            Some(stored_pass) if stored_pass == pass.reveal_secret() => {
                 if let Some(auth_user) = self.users.get(user) {
                     Ok(auth_user.clone())
                 } else {

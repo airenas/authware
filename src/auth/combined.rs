@@ -1,6 +1,6 @@
 use async_trait::async_trait;
 
-use crate::{model::auth, AuthService};
+use crate::{model::auth, utils::secret_str::SecretString, AuthService};
 
 pub struct Auths {
     auths: Vec<Box<dyn AuthService + Send + Sync>>,
@@ -17,7 +17,7 @@ impl Auths {
 
 #[async_trait]
 impl AuthService for Auths {
-    async fn login(&self, user: &str, pass: &str) -> Result<auth::User, auth::Error> {
+    async fn login(&self, user: &str, pass: &SecretString) -> Result<auth::User, auth::Error> {
         let mut last_err: Option<auth::Error> = None;
         for auth in &self.auths {
             match auth.login(user, pass).await {

@@ -14,8 +14,11 @@ build/local:
 .PHONY: build/local
 ###############################################################################
 test/unit:
-	RUST_LOG=DEBUG cargo test --bins --lib --no-fail-fast
+	RUST_LOG=DEBUG cargo test --bins --lib  --no-fail-fast
 .PHONY: test/unit
+test/doc:
+	RUST_LOG=DEBUG cargo test --doc  --no-fail-fast
+.PHONY: test/doc
 test/coverage:
 	cargo tarpaulin --lib --bins --ignore-tests
 .PHONY: test/coverage

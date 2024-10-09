@@ -56,7 +56,7 @@ pub async fn handler(
     let pass = payload.pass.as_deref().unwrap_or("");
 
     tracing::debug!(user = user, ip = ip.as_ref(), "call auth service login");
-    let res = auth.login(user, pass).await?;
+    let res = auth.login(user, &pass.into()).await?;
     tracing::trace!(user = user, "got result");
     tracing::trace!(user = user, "creating session");
     let session_id = generate_session();

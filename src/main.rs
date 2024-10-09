@@ -167,7 +167,7 @@ async fn init_auth(args: &Args) -> anyhow::Result<Box<dyn AuthService + Send + S
         auths.push(Box::new(authware::auth::admin3ws::Auth::new(
             &args.auth_ws_url,
             &args.auth_ws_user,
-            &args.auth_ws_pass,
+            args.auth_ws_pass.as_str().into(),
             &args.auth_app_code,
         )?));
     }

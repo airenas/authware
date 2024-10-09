@@ -10,6 +10,7 @@ use async_trait::async_trait;
 use axum::http::HeaderMap;
 use model::data::SessionData;
 use tokio::signal;
+use utils::secret_str::SecretString;
 
 pub mod handler;
 
@@ -24,7 +25,11 @@ pub trait SessionStore {
 
 #[async_trait]
 pub trait AuthService {
-    async fn login(&self, user: &str, pass: &str) -> Result<model::auth::User, model::auth::Error>;
+    async fn login(
+        &self,
+        user: &str,
+        pass: &SecretString,
+    ) -> Result<model::auth::User, model::auth::Error>;
 }
 
 pub trait Encryptor {

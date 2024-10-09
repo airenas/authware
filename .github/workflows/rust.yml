@@ -33,6 +33,9 @@ jobs:
       - name: Test 
         run: make test/unit     
 
+      - name: Test doc
+        run: make test/doc       
+
       - name: Install requirements 
         run: make install/checks
 

@@ -7,37 +7,46 @@ use serde::{de::DeserializeOwned, Deserialize};
 use serde_xml_rs::from_str;
 use urlencoding::encode;
 
-use crate::{model::auth, AuthService};
+use crate::{model::auth, utils::secret_str::SecretString, AuthService};
 pub struct Auth {
     ws_url: String,
     ws_user: String,
-    ws_pass: String,
+    ws_pass: SecretString,
     app_code: String,
     client: reqwest::Client,
 }
 
 impl Auth {
-    pub fn new(ws_url: &str, ws_user: &str, ws_pass: &str, app_code: &str) -> anyhow::Result<Self> {
+    pub fn new(
+        ws_url: &str,
+        ws_user: &str,
+        ws_pass: SecretString,
+        app_code: &str,
+    ) -> anyhow::Result<Self> {
         tracing::debug!(ws_url, ws_user, app_code, "init auth");
-        if ws_url.is_empty() || ws_user.is_empty() || ws_pass.is_empty() || app_code.is_empty() {
+        if ws_url.is_empty()
+            || ws_user.is_empty()
+            || ws_pass.reveal_secret().is_empty()
+            || app_code.is_empty()
+        {
             return Err(anyhow::anyhow!("Empty auth params"));
         }
         Ok(Auth {
             ws_url: ws_url.to_string(),
             ws_user: ws_user.to_string(),
-            ws_pass: ws_pass.to_string(),
+            ws_pass,
             app_code: app_code.to_string(),
             client: Client::builder().timeout(Duration::from_secs(5)).build()?,
         })
     }
 
-    fn make_details_url(&self, user: &str, pass: &str) -> String {
+    fn make_details_url(&self, user: &str, pass: &SecretString) -> String {
         format!(
             "{}/authenticate_details/{}/{}/{}",
             self.ws_url,
             encode(&self.app_code),
             encode(user),
-            encode(pass)
+            encode(pass.reveal_secret())
         )
     }
 
@@ -54,7 +63,7 @@ impl Auth {
         let response = self
             .client
             .get(url)
-            .basic_auth(&self.ws_user, Some(&self.ws_pass))
+            .basic_auth(&self.ws_user, Some(self.ws_pass.reveal_secret()))
             .send()
             .await
             .map_err(|e| anyhow::anyhow!("url call error: {:?}", e))?;
@@ -82,9 +91,9 @@ impl Auth {
 
 #[async_trait]
 impl AuthService for Auth {
-    async fn login(&self, user: &str, pass: &str) -> Result<auth::User, auth::Error> {
+    async fn login(&self, user: &str, pass: &SecretString) -> Result<auth::User, auth::Error> {
         tracing::trace!(
-            url = self.make_details_url(user, "----"),
+            url = self.make_details_url(user, &"----".into()),
             "call auth details"
         );
         let user_details = self.make_call(&self.make_details_url(user, pass)).await?;
