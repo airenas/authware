@@ -22,6 +22,7 @@ services:
       - redis
     environment:
       - AUTH_SERVICE_URL=https://authware:8000/auth
+      - RUST_LOG=info
     volumes:
       - ../:/src/
     command: test --test integration_test --target-dir /tmp/target

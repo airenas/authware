@@ -2,7 +2,25 @@ use std::{env, time::Duration};
 
 use reqwest::{Client, StatusCode};
 use serde_json::json;
-use tokio::time::sleep;
+use tokio::{sync::OnceCell, time::sleep};
+use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
+
+static INIT: OnceCell<()> = OnceCell::const_new();
+const IP_HEADER_KEY: &str = "x-forwarded-for";
+
+async fn init_wait_for_ready() {
+    INIT.get_or_init(|| async {
+        tracing_subscriber::registry()
+            .with(tracing_subscriber::EnvFilter::from_default_env())
+            .with(tracing_subscriber::fmt::Layer::default().compact())
+            .init();
+
+        wait_for_server_ready().await;
+    })
+    .await;
+
+    tracing::info!("Test init is done!");
+}
 
 fn get_auth_service_url() -> String {
     env::var("AUTH_SERVICE_URL").expect("AUTH_SERVICE_URL not set")
@@ -15,7 +33,15 @@ fn create_client() -> Client {
         .expect("Failed to build reqwest client")
 }
 
-async fn get_session_id() -> String {
+fn make_ip_header(ip: &str) -> String {
+    let mut ips = vec!["1.1.1.1"];
+    if !ip.is_empty() {
+        ips.insert(0, ip);
+    }
+    ips.join(",")
+}
+
+async fn get_session_id(ip: &str) -> String {
     let client = create_client();
     let url = format!("{}/login", get_auth_service_url());
     let payload = json!({
@@ -25,6 +51,7 @@ async fn get_session_id() -> String {
 
     let response = client
         .post(url)
+        .header(IP_HEADER_KEY, make_ip_header(ip))
         .json(&payload)
         .send()
         .await
@@ -49,14 +76,14 @@ async fn wait_for_server_ready() {
 
         match response {
             Ok(resp) if resp.status() == StatusCode::OK => {
-                println!("Server is ready!");
+                tracing::info!("Server is ready!");
                 return;
             }
             Ok(_) => {
-                println!("Server not ready yet, retrying...");
+                tracing::info!("Server not ready yet, retrying...");
             }
             Err(e) => {
-                println!("Error connecting to server: {:?}", e);
+                tracing::info!("Error connecting to server: {:?}", e);
             }
         }
         sleep(Duration::from_millis(500)).await;
@@ -67,7 +94,7 @@ async fn wait_for_server_ready() {
 
 #[tokio::test]
 async fn test_live() {
-    wait_for_server_ready().await;
+    init_wait_for_ready().await;
     let client = create_client();
     let url = format!("{}/live", get_auth_service_url());
     let response = client
@@ -81,13 +108,13 @@ async fn test_live() {
 
 #[tokio::test]
 async fn test_successful_login() {
-    wait_for_server_ready().await;
-    get_session_id().await;
+    init_wait_for_ready().await;
+    get_session_id("").await;
 }
 
 #[tokio::test]
 async fn test_failed_login() {
-    wait_for_server_ready().await;
+    init_wait_for_ready().await;
     let client = create_client();
     let url = format!("{}/login", get_auth_service_url());
     let payload = json!({
@@ -107,8 +134,8 @@ async fn test_failed_login() {
 
 #[tokio::test]
 async fn test_successful_auth() {
-    wait_for_server_ready().await;
-    let token = get_session_id().await;
+    init_wait_for_ready().await;
+    let token = get_session_id("").await;
     let client = create_client();
     let url = get_auth_service_url();
     let response = client
@@ -122,8 +149,8 @@ async fn test_successful_auth() {
 
 #[tokio::test]
 async fn test_successful_auth_query() {
-    wait_for_server_ready().await;
-    let token = get_session_id().await;
+    init_wait_for_ready().await;
+    let token = get_session_id("").await;
     let client = create_client();
     let url = format!("{}?token={}", get_auth_service_url(), token);
     let response = client
@@ -137,7 +164,7 @@ async fn test_successful_auth_query() {
 
 #[tokio::test]
 async fn test_fail_auth() {
-    wait_for_server_ready().await;
+    init_wait_for_ready().await;
     let token = "olia";
     let client = create_client();
     let url = get_auth_service_url();
@@ -158,8 +185,8 @@ async fn test_fail_auth() {
 
 #[tokio::test]
 async fn test_logout() {
-    wait_for_server_ready().await;
-    let token = get_session_id().await;
+    init_wait_for_ready().await;
+    let token = get_session_id("").await;
     let client = create_client();
     let url = format!("{}/logout", get_auth_service_url());
     let response = client
@@ -177,4 +204,39 @@ async fn test_logout() {
         .await
         .expect("Failed to send request");
     assert_eq!(response.status(), reqwest::StatusCode::UNAUTHORIZED);
+}
+
+#[tokio::test]
+async fn test_successful_auth_ip() {
+    init_wait_for_ready().await;
+    let ip = "2.2.2.2";
+    let token = get_session_id(ip).await;
+    let client = create_client();
+    let url = get_auth_service_url();
+    let response = client
+        .get(&url)
+        .header("Authorization", format!("Bearer {}", token))
+        .header(IP_HEADER_KEY, make_ip_header(ip))
+        .send()
+        .await
+        .expect("Failed to send request");
+    assert_eq!(response.status(), reqwest::StatusCode::OK);
+    tracing::info!("Test successful_auth_ip passed");
+    let response = client
+        .get(&url)
+        .header("Authorization", format!("Bearer {}", token))
+        .send()
+        .await
+        .expect("Failed to send request");
+    assert_eq!(response.status(), reqwest::StatusCode::UNAUTHORIZED);
+    tracing::info!("Test no ip passed");
+    let response = client
+        .get(&url)
+        .header("Authorization", format!("Bearer {}", token))
+        .header(IP_HEADER_KEY, make_ip_header("any"))
+        .send()
+        .await
+        .expect("Failed to send request");
+    assert_eq!(response.status(), reqwest::StatusCode::UNAUTHORIZED);
+    tracing::info!("Test wrong ip passed");
 }
