@@ -9,11 +9,11 @@ help:
 #####################################################################################
 ## start all containers
 start: 
-	docker compose up -d authware redis
+	docker compose up -d redis
 .PHONY: start
 ## invoke integration tests
 test/integration: start 
-	docker compose up --build --exit-code-from integration-test integration-test
+	docker compose up --build --exit-code-from integration-test authware integration-test
 .PHONY: test/integration
 ## clean everything, stops docker containers and removes them
 clean:
