@@ -9,12 +9,14 @@ pub struct User {
 
 #[derive(Debug, Error)]
 pub enum Error {
-    #[error("Wrong password`")]
+    #[error("Wrong password")]
     WrongUserPass(),
-    #[error("Expired password`")]
+    #[error("Expired password")]
     ExpiredPass(),
-    #[error("No access`")]
+    #[error("No access")]
     NoAccess(),
+    #[error("Other Auth error")]
+    OtherAuth(String),
     #[error(transparent)]
-    Other(#[from] anyhow::Error),
+    ServiceError(#[from] anyhow::Error),
 }

@@ -22,6 +22,8 @@ pub enum ApiError {
     NoSession(),
     #[error("No access`")]
     NoAccess(),
+    #[error("other auth error: {0}")]
+    OtherAuth(String),
     #[error(transparent)]
     Other(#[from] anyhow::Error),
 }
@@ -70,6 +72,10 @@ impl IntoResponse for ApiError {
                 tracing::warn!("No access");
                 (StatusCode::UNAUTHORIZED, Cow::Borrowed("No access"))
             }
+            ApiError::OtherAuth(error) => {
+                tracing::warn!("{}", error);
+                (StatusCode::UNAUTHORIZED, Cow::Borrowed("No access"))
+            }
         };
 
         (status, message).into_response()
@@ -81,7 +87,8 @@ impl From<auth::Error> for ApiError {
         match error {
             auth::Error::WrongUserPass() => ApiError::WrongUserPass(),
             auth::Error::ExpiredPass() => ApiError::ExpiredPass(),
-            auth::Error::Other(error) => ApiError::Other(error),
+            auth::Error::ServiceError(error) => ApiError::Other(error),
+            auth::Error::OtherAuth(error) => ApiError::OtherAuth(error),
             auth::Error::NoAccess() => ApiError::NoAccess(),
         }
     }

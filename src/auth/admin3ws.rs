@@ -180,7 +180,11 @@ fn map_err_codes(res_code: i32) -> auth::Error {
         5 => auth::Error::WrongUserPass(),
         2 => auth::Error::ExpiredPass(),
         3 => auth::Error::ExpiredPass(),
-        _ => auth::Error::Other(anyhow::anyhow!("Auth Service error: {}", res_code)),
+        6 => auth::Error::OtherAuth(format!("Code {}", res_code)),
+        7 => auth::Error::OtherAuth(format!("Code {}", res_code)),
+        8 => auth::Error::OtherAuth(format!("Code {}", res_code)),
+        9 => auth::Error::OtherAuth(format!("Code {}", res_code)),
+        _ => auth::Error::ServiceError(anyhow::anyhow!("Auth Service error: {}", res_code)),
     }
 }
 
@@ -212,10 +216,11 @@ mod tests {
         assert_eq!(result, wanted);
     }
 
-    #[test_case("aaa", auth::Error::Other(anyhow::anyhow!("can't parse to int aaa: ParseIntError {{ kind: InvalidDigit }}")); "not int")]
+    #[test_case("aaa", auth::Error::ServiceError(anyhow::anyhow!("can't parse to int aaa: ParseIntError {{ kind: InvalidDigit }}")); "not int")]
     #[test_case("1", auth::Error::WrongUserPass(); "wrong user")]
     #[test_case("2", auth::Error::ExpiredPass(); "expired")]
-    #[test_case("12", auth::Error::Other(anyhow::anyhow!("Auth Service error: 12")); "other")]
+    #[test_case("8", auth::Error::OtherAuth("Code 8".to_string()); "code 8")]
+    #[test_case("12", auth::Error::ServiceError(anyhow::anyhow!("Auth Service error: 12")); "other")]
     fn test_parse_user_err(input: &str, wanted: auth::Error) {
         let result = process_body::<User>(input);
         assert_eq!(result.err().unwrap().to_string(), wanted.to_string());
