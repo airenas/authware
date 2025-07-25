@@ -161,8 +161,12 @@ async fn test_successful_auth_query() {
         .await
         .expect("Failed to send request");
     assert_eq!(response.status(), reqwest::StatusCode::OK);
-    let header = response.headers().get("X-User-Info").expect("No X-User-Info header");
-    let decoded = base64::prelude::BASE64_STANDARD.decode(header.as_bytes())
+    let header = response
+        .headers()
+        .get("X-User-Info")
+        .expect("No X-User-Info header");
+    let decoded = base64::prelude::BASE64_STANDARD
+        .decode(header.as_bytes())
         .expect("Failed to decode X-User-Info header");
     let user_info: serde_json::Value = serde_json::from_slice(&decoded)
         .expect("Failed to parse user info from X-User-Info header");

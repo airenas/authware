@@ -11,7 +11,10 @@ use chrono::Utc;
 use rand::{rngs::OsRng, RngCore};
 use serde::{Deserialize, Serialize};
 
-use crate::{handler::data::User, model::{data::SessionData, service}};
+use crate::{
+    handler::data::User,
+    model::{data::SessionData, service},
+};
 
 use super::error::ApiError;
 

@@ -61,7 +61,6 @@ pub async fn handler(
         .map_err(|e| ApiError::Server(format!("serialize session data: {}", e)))?;
     let encoded_header = base64::prelude::BASE64_STANDARD.encode(header.as_bytes());
 
-    
     let response = Response::builder()
         .status(StatusCode::OK)
         .header(

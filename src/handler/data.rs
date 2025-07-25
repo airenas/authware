@@ -21,4 +21,3 @@ impl From<model::auth::User> for User {
         }
     }
 }
-

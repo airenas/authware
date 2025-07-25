@@ -20,9 +20,7 @@ pub async fn handler(
     let ip = data.ip_extractor.get(&headers);
     tracing::debug!(ip = ip.as_ref(), "caller");
     match bearer {
-        None => {
-            Err(ApiError::NoSession())
-        }
+        None => Err(ApiError::NoSession()),
         Some(bearer) => {
             let session_id = bearer.token();
             tracing::debug!(session_id = session_id, "keep_alive");
