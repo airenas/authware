@@ -5,7 +5,7 @@ version?=dev
 tag=$(service):$(version)
 
 dbuild:
-	cd ../.. && docker buildx build -t $(tag) --build-arg BUILD_VERSION=$(version) -f build/authware/Dockerfile .
+	cd ../.. && docker buildx build -t $(tag) --build-arg BUILD_VERSION=$(version) -f build/authware/Dockerfile --load .
 
 dpush: dbuild
 	docker push $(tag)

@@ -36,6 +36,8 @@ services:
 
   redis:
     image: redis:7.2.5-alpine3.19
+    ports:
+      - "6380:6379"
 
   whoami-public:
     image: traefik/whoami
