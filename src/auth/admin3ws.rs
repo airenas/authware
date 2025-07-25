@@ -181,11 +181,11 @@ fn map_err_codes(res_code: i32) -> auth::Error {
         5 => auth::Error::WrongUserPass(),
         2 => auth::Error::ExpiredPass(),
         3 => auth::Error::ExpiredPass(),
-        6 => auth::Error::OtherAuth(format!("Code {}", res_code)),
-        7 => auth::Error::OtherAuth(format!("Code {}", res_code)),
-        8 => auth::Error::OtherAuth(format!("Code {}", res_code)),
-        9 => auth::Error::OtherAuth(format!("Code {}", res_code)),
-        _ => auth::Error::ServiceError(anyhow::anyhow!("Auth Service error: {}", res_code)),
+        6 => auth::Error::OtherAuth(format!("Code {res_code}")),
+        7 => auth::Error::OtherAuth(format!("Code {res_code}")),
+        8 => auth::Error::OtherAuth(format!("Code {res_code}")),
+        9 => auth::Error::OtherAuth(format!("Code {res_code}")),
+        _ => auth::Error::ServiceError(anyhow::anyhow!("Auth Service error: {res_code}")),
     }
 }
 

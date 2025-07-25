@@ -58,7 +58,7 @@ pub async fn handler(
     store.mark_last_used(session_id.as_ref(), now).await?;
 
     let header = serde_json::to_string(&res.user)
-        .map_err(|e| ApiError::Server(format!("serialize session data: {}", e)))?;
+        .map_err(|e| ApiError::Server(format!("serialize session data: {e}")))?;
     let encoded_header = base64::prelude::BASE64_STANDARD.encode(header.as_bytes());
 
     let response = Response::builder()
@@ -66,10 +66,10 @@ pub async fn handler(
         .header(
             "X-User-Info",
             HeaderValue::from_str(&encoded_header)
-                .map_err(|e| ApiError::Server(format!("build response: {}", e)))?,
+                .map_err(|e| ApiError::Server(format!("build response: {e}")))?,
         )
         .body(OK_RESPONSE.to_string())
-        .map_err(|e| ApiError::Server(format!("build response: {}", e)))?;
+        .map_err(|e| ApiError::Server(format!("build response: {e}")))?;
 
     Ok(response)
 }

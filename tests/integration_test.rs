@@ -90,7 +90,7 @@ async fn wait_for_server_ready() {
         sleep(Duration::from_millis(500)).await;
     }
 
-    panic!("Server did not become ready within {} seconds", timeout_sec);
+    panic!("Server did not become ready within {timeout_sec} seconds");
 }
 
 #[tokio::test]
@@ -141,7 +141,7 @@ async fn test_successful_auth() {
     let url = get_auth_service_url();
     let response = client
         .get(url)
-        .header("Authorization", format!("Bearer {}", token))
+        .header("Authorization", format!("Bearer {token}"))
         .send()
         .await
         .expect("Failed to send request");
@@ -184,7 +184,7 @@ async fn test_fail_auth() {
     let url = get_auth_service_url();
     let response = client
         .get(&url)
-        .header("Authorization", format!("Bearer {}", token))
+        .header("Authorization", format!("Bearer {token}"))
         .send()
         .await
         .expect("Failed to send request");
@@ -205,7 +205,7 @@ async fn test_logout() {
     let url = format!("{}/logout", get_auth_service_url());
     let response = client
         .post(&url)
-        .header("Authorization", format!("Bearer {}", token))
+        .header("Authorization", format!("Bearer {token}"))
         .send()
         .await
         .expect("Failed to send request");
@@ -213,7 +213,7 @@ async fn test_logout() {
     let url = get_auth_service_url();
     let response = client
         .get(url)
-        .header("Authorization", format!("Bearer {}", token))
+        .header("Authorization", format!("Bearer {token}"))
         .send()
         .await
         .expect("Failed to send request");
@@ -229,7 +229,7 @@ async fn test_successful_auth_ip() {
     let url = get_auth_service_url();
     let response = client
         .get(&url)
-        .header("Authorization", format!("Bearer {}", token))
+        .header("Authorization", format!("Bearer {token}"))
         .header(IP_HEADER_KEY, make_ip_header(ip))
         .send()
         .await
@@ -238,7 +238,7 @@ async fn test_successful_auth_ip() {
     tracing::info!("Test successful_auth_ip passed");
     let response = client
         .get(&url)
-        .header("Authorization", format!("Bearer {}", token))
+        .header("Authorization", format!("Bearer {token}"))
         .send()
         .await
         .expect("Failed to send request");
@@ -246,7 +246,7 @@ async fn test_successful_auth_ip() {
     tracing::info!("Test no ip passed");
     let response = client
         .get(&url)
-        .header("Authorization", format!("Bearer {}", token))
+        .header("Authorization", format!("Bearer {token}"))
         .header(IP_HEADER_KEY, make_ip_header("any"))
         .send()
         .await
