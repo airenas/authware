@@ -108,14 +108,14 @@ impl AuthService for Auth {
             len = roles.roles.as_ref().map_or(0, |vec| vec.len()),
             "got roles"
         );
-        if roles.roles.as_ref().map_or(true, |vec| vec.is_empty()) {
+        if roles.roles.as_ref().is_none_or(|vec| vec.is_empty()) {
             return Err(auth::Error::NoAccess());
         }
-        map_res(user_data, roles)
+        map_res(user, user_data, roles)
     }
 }
 
-fn map_res(user_data: User, roles: Roles) -> Result<auth::User, auth::Error> {
+fn map_res(id: &str, user_data: User, roles: Roles) -> Result<auth::User, auth::Error> {
     let roles_str: Vec<String> = match roles.roles {
         Some(roles) => roles.into_iter().map(|r| r.name).collect(),
         None => Vec::new(), // or vec![] to create an empty Vec<String>
@@ -125,6 +125,7 @@ fn map_res(user_data: User, roles: Roles) -> Result<auth::User, auth::Error> {
         .as_ref() // Convert Option<Department> to Option<&Department>
         .map_or_else(|| "", |dept| &dept.name);
     let res = auth::User {
+        id: id.to_string(),
         name: user_data.first_name + " " + &user_data.last_name,
         department: dep.to_string(),
         roles: roles_str,

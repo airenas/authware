@@ -1,5 +1,6 @@
 use std::{env, time::Duration};
 
+use base64::Engine;
 use reqwest::{Client, StatusCode};
 use serde_json::json;
 use tokio::{sync::OnceCell, time::sleep};
@@ -160,6 +161,15 @@ async fn test_successful_auth_query() {
         .await
         .expect("Failed to send request");
     assert_eq!(response.status(), reqwest::StatusCode::OK);
+    let header = response.headers().get("X-User-Info").expect("No X-User-Info header");
+    let decoded = base64::prelude::BASE64_STANDARD.decode(header.as_bytes())
+        .expect("Failed to decode X-User-Info header");
+    let user_info: serde_json::Value = serde_json::from_slice(&decoded)
+        .expect("Failed to parse user info from X-User-Info header");
+    tracing::info!("User info: {:?}", user_info);
+    assert!(user_info.get("id").is_some());
+    assert!(user_info.get("roles").is_some());
+    assert!(user_info.get("name").is_some());
 }
 
 #[tokio::test]

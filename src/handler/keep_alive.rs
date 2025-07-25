@@ -19,9 +19,9 @@ pub async fn handler(
     tracing::debug!("start keep_alive");
     let ip = data.ip_extractor.get(&headers);
     tracing::debug!(ip = ip.as_ref(), "caller");
-    return match bearer {
+    match bearer {
         None => {
-            return Err(ApiError::NoSession());
+            Err(ApiError::NoSession())
         }
         Some(bearer) => {
             let session_id = bearer.token();
@@ -37,5 +37,5 @@ pub async fn handler(
             store.mark_last_used(session_id, now).await?;
             Ok(())
         }
-    };
+    }
 }

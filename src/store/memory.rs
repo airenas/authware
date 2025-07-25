@@ -115,11 +115,18 @@ impl SessionStore for InMemorySessionStore {
 
 #[cfg(test)]
 mod tests {
+    use crate::model::auth::User;
+
     use super::*;
 
     fn _session_data(at: i64) -> SessionData {
         SessionData {
-            user: "test".to_string(),
+            user: User {
+                id: "test_user".to_string(),
+                name: "Test User".to_string(),
+                department: "Test Department".to_string(),
+                roles: vec!["admin".to_string()],
+            },
             ip: "".to_string(),
             valid_till: at,
             last_access: 20,

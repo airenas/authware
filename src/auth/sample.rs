@@ -27,6 +27,7 @@ fn to_user(user_name: &str) -> (String, auth::User) {
 
 fn to_auth_user(user: &str) -> auth::User {
     auth::User {
+        id: user.to_string(),
         name: user.to_string(),
         department: "IT".to_string(),
         roles: vec!["USER".to_string()],

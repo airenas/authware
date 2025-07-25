@@ -1,7 +1,9 @@
+use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
-#[derive(Clone, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 pub struct User {
+    pub id: String,
     pub name: String,
     pub department: String,
     pub roles: Vec<String>,

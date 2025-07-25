@@ -1,23 +1,31 @@
 use std::{borrow::Cow, sync::Arc};
 
-use axum::{extract::State, http::HeaderMap};
+use axum::{
+    extract::State,
+    http::{HeaderMap, HeaderValue},
+    response::Response,
+};
+use base64::Engine;
 use chrono::Utc;
 
 use axum_extra::{
     headers::{authorization::Bearer, Authorization},
     TypedHeader,
 };
+use reqwest::StatusCode;
 use urlencoding::decode;
 
 use crate::model::service;
 
 use super::error::ApiError;
 
+const OK_RESPONSE: &str = "OK";
+
 pub async fn handler(
     State(data): State<Arc<service::Data>>,
     headers: HeaderMap,
     bearer: Option<TypedHeader<Authorization<Bearer>>>,
-) -> Result<(), ApiError> {
+) -> Result<Response<String>, ApiError> {
     let forwarded_uri = headers
         .get("X-Forwarded-Uri")
         .map(|h| h.to_str().unwrap_or(""));
@@ -38,7 +46,7 @@ pub async fn handler(
     let res = store.get(&session_id).await?;
     tracing::debug!(
         session_id = session_id.as_ref(),
-        user = res.user,
+        user = res.user.id,
         ip = res.ip,
         "got"
     );
@@ -48,7 +56,23 @@ pub async fn handler(
     let config = &data.config;
     res.check_inactivity(now, config.inactivity)?;
     store.mark_last_used(session_id.as_ref(), now).await?;
-    Ok(())
+
+    let header = serde_json::to_string(&res.user)
+        .map_err(|e| ApiError::Server(format!("serialize session data: {}", e)))?;
+    let encoded_header = base64::prelude::BASE64_STANDARD.encode(header.as_bytes());
+
+    
+    let response = Response::builder()
+        .status(StatusCode::OK)
+        .header(
+            "X-User-Info",
+            HeaderValue::from_str(&encoded_header)
+                .map_err(|e| ApiError::Server(format!("build response: {}", e)))?,
+        )
+        .body(OK_RESPONSE.to_string())
+        .map_err(|e| ApiError::Server(format!("build response: {}", e)))?;
+
+    Ok(response)
 }
 
 fn parse_token_from_url(url: &str) -> Option<Cow<str>> {

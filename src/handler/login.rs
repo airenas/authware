@@ -11,7 +11,7 @@ use chrono::Utc;
 use rand::{rngs::OsRng, RngCore};
 use serde::{Deserialize, Serialize};
 
-use crate::model::{data::SessionData, service};
+use crate::{handler::data::User, model::{data::SessionData, service}};
 
 use super::error::ApiError;
 
@@ -19,14 +19,6 @@ use super::error::ApiError;
 pub struct Request {
     user: Option<String>,
     pass: Option<String>,
-}
-
-// Define the response structure for returning a session ID
-#[derive(Serialize)]
-pub struct User {
-    name: String,
-    department: String,
-    roles: Vec<String>,
 }
 
 #[derive(Serialize)]
@@ -65,7 +57,7 @@ pub async fn handler(
         .add(
             &session_id,
             SessionData {
-                user: res.name.clone(),
+                user: res.clone(),
                 ip: ip.to_string(),
                 valid_till: now.timestamp_millis() + cfg.session_timeout,
                 last_access: now.timestamp_millis(),
@@ -75,11 +67,7 @@ pub async fn handler(
     tracing::trace!(user = user, "saved");
     let response = Response {
         session_id,
-        user: User {
-            name: res.name,
-            department: res.department,
-            roles: res.roles,
-        },
+        user: res.into(),
     };
     Ok(Json(response))
 }

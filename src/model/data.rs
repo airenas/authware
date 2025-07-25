@@ -1,10 +1,10 @@
 use serde::{Deserialize, Serialize};
 
-use crate::handler::error::ApiError;
+use crate::{handler::error::ApiError, model::auth::User};
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 pub struct SessionData {
-    pub user: String,
+    pub user: User,
     pub ip: String,
     pub valid_till: i64,  // Unix timestamp
     pub last_access: i64, // Unix timestamp
@@ -59,7 +59,12 @@ mod tests {
 
     fn session_data() -> SessionData {
         SessionData {
-            user: "admin".to_string(),
+            user: User {
+                id: "test_user".to_string(),
+                name: "Test User".to_string(),
+                department: "Test Department".to_string(),
+                roles: vec!["admin".to_string()],
+            },
             ip: "2.2.2.2".to_string(),
             valid_till: 1000,
             last_access: 500,
