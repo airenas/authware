@@ -29,8 +29,8 @@ fn to_auth_user(user: &str) -> auth::User {
     auth::User {
         id: user.to_string(),
         name: user.to_string(),
-        department: "IT".to_string(),
-        roles: vec!["USER".to_string()],
+        department: "IT dep of ".to_string() + user,
+        roles: vec!["USER".to_string(), user.to_uppercase()],
     }
 }
 
