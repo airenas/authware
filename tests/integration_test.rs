@@ -163,17 +163,18 @@ async fn test_successful_auth_query() {
     assert_eq!(response.status(), reqwest::StatusCode::OK);
     let header = response
         .headers()
-        .get("X-User-Info")
-        .expect("No X-User-Info header");
+        .get("User-Info")
+        .expect("No User-Info header");
     let decoded = base64::prelude::BASE64_STANDARD
         .decode(header.as_bytes())
-        .expect("Failed to decode X-User-Info header");
+        .expect("Failed to decode User-Info header");
     let user_info: serde_json::Value = serde_json::from_slice(&decoded)
-        .expect("Failed to parse user info from X-User-Info header");
+        .expect("Failed to parse user info from User-Info header");
     tracing::info!("User info: {:?}", user_info);
-    assert!(user_info.get("id").is_some());
+    assert_eq!(user_info.get("id").unwrap(), "admin");
     assert!(user_info.get("roles").is_some());
-    assert!(user_info.get("name").is_some());
+    assert_eq!(user_info.get("department").unwrap(), "IT dep of admin");
+    assert_eq!(user_info.get("name").unwrap(), "admin");
 }
 
 #[tokio::test]
