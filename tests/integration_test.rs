@@ -168,8 +168,8 @@ async fn test_successful_auth_query() {
     let decoded = base64::prelude::BASE64_STANDARD
         .decode(header.as_bytes())
         .expect("Failed to decode User-Info header");
-    let user_info: serde_json::Value = serde_json::from_slice(&decoded)
-        .expect("Failed to parse user info from User-Info header");
+    let user_info: serde_json::Value =
+        serde_json::from_slice(&decoded).expect("Failed to parse user info from User-Info header");
     tracing::info!("User info: {:?}", user_info);
     assert_eq!(user_info.get("id").unwrap(), "admin");
     assert!(user_info.get("roles").is_some());
