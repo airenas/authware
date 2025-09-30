@@ -74,7 +74,7 @@ pub async fn handler(
     Ok(response)
 }
 
-fn parse_token_from_url(url: &str) -> Option<Cow<str>> {
+fn parse_token_from_url(url: &str) -> Option<Cow<'_, str>> {
     if let Some(pos) = url.find('?') {
         let query = &url[pos + 1..];
         for param in query.split('&') {
