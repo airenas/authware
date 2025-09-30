@@ -20,7 +20,7 @@ jobs:
         with:
             toolchain: stable
             override: true
-            components: clippy
+            components: clippy, rustfmt
       - name: Check format 
         run: make test/format   
 
