@@ -10,38 +10,53 @@ pub struct Sample {
 }
 
 impl Sample {
+    // Create a new Sample auth service from a string of user:pass pairs separated by semicolons.
+    // Example input: "user1:pass1:department:role1,role2;user2:pass2:department2:HR"
     pub fn new(user_pass_pairs: &str) -> anyhow::Result<Self> {
-        let passwords = parse_user_pass(user_pass_pairs)?;
-        let users = passwords.keys().map(|un| to_user(un)).collect();
-        passwords.keys().for_each(|un| {
-            tracing::debug!(user = un, "Sample");
+        let data = parse_users(user_pass_pairs)?;
+        let users: HashMap<String, auth::User> = data
+            .iter()
+            .map(|(un, (_, dep, roles))| to_user(un, dep, roles))
+            .collect();
+        let passwords = data
+            .iter()
+            .map(|(un, (pass, _, _))| (un.clone(), pass.clone()))
+            .collect();
+
+        users.iter().for_each(|(_, user)| {
+            tracing::debug!(user = user.name, dep = user.department, roles = ?user.roles, "Sample");
         });
 
         Ok(Sample { users, passwords })
     }
 }
 
-fn to_user(user_name: &str) -> (String, auth::User) {
-    (user_name.to_string(), to_auth_user(user_name))
+fn to_user(user_name: &str, department: &str, roles: &Vec<String>) -> (String, auth::User) {
+    (
+        user_name.to_string(),
+        to_auth_user(user_name, department, roles),
+    )
 }
 
-fn to_auth_user(user: &str) -> auth::User {
+fn to_auth_user(user: &str, department: &str, roles: &Vec<String>) -> auth::User {
     auth::User {
         id: user.to_string(),
         name: user.to_string(),
-        department: "IT dep of ".to_string() + user,
-        roles: vec!["USER".to_string(), user.to_uppercase()],
+        department: department.to_string(),
+        roles: roles.to_vec(),
     }
 }
-
-fn parse_user_pass(user_pass_pairs: &str) -> anyhow::Result<HashMap<String, String>> {
+// Parse a string of user:pass pairs separated by semicolons into a HashMap, value (pass, department, roles).
+fn parse_users(
+    user_pass_pairs: &str,
+) -> anyhow::Result<HashMap<String, (String, String, Vec<String>)>> {
     let mut users = HashMap::new();
     if user_pass_pairs.is_empty() {
         return Ok(users);
     }
     for pair in user_pass_pairs.split(';') {
         let credentials: Vec<&str> = pair.split(':').collect();
-        if credentials.len() != 2 {
+        if credentials.len() < 2 || credentials.len() > 4 {
             return Err(anyhow::anyhow!("Invalid user:pass format in: {}", pair));
         }
         let user = credentials[0].to_string();
@@ -52,7 +67,21 @@ fn parse_user_pass(user_pass_pairs: &str) -> anyhow::Result<HashMap<String, Stri
                 pair
             ));
         }
-        users.insert(user, pass);
+        let department = if credentials.len() >= 3 {
+            credentials[2].to_string()
+        } else {
+            "IT dep of ".to_string() + &user
+        };
+        let roles = if credentials.len() == 4 {
+            credentials[3]
+                .split(',')
+                .map(|r| r.trim().to_string())
+                .filter(|r| !r.is_empty())
+                .collect()
+        } else {
+            vec!["USER".to_string()]
+        };
+        users.insert(user, (pass, department, roles));
     }
     Ok(users)
 }
@@ -81,11 +110,23 @@ mod tests {
     #[test_case("",  HashMap::new(); "empty")]
     #[test_case("olia:oo", {
         let mut map = HashMap::new();
-        map.insert("olia".to_string(), "oo".to_string());
+        map.insert("olia".to_string(), ("oo".to_string(), "IT dep of olia".to_string(), vec!["USER".to_string()]));
         map
     }; "single entry")]
-    fn test_parse_user_pass(input: &str, expected: HashMap<String, String>) {
-        let actual = parse_user_pass(input).unwrap();
+    #[test_case("olia:oo;IT:HR", {
+        let mut map = HashMap::new();
+        map.insert("olia".to_string(), ("oo".to_string(), "IT dep of olia".to_string(), vec!["USER".to_string()]));
+        map.insert("IT".to_string(), ("HR".to_string(), "IT dep of IT".to_string(), vec!["USER".to_string()]));
+        map
+    }; "multiple entries")]
+    #[test_case("olia:oo:dep:r1,r2;IT:HR:dep2:r1,r4", {
+        let mut map = HashMap::new();
+        map.insert("olia".to_string(), ("oo".to_string(), "dep".to_string(), vec!["r1".to_string(), "r2".to_string()]));
+        map.insert("IT".to_string(), ("HR".to_string(), "dep2".to_string(), vec!["r1".to_string(), "r4".to_string()]));
+        map
+    }; "multiple entries with roles")]
+    fn test_parse_users(input: &str, expected: HashMap<String, (String, String, Vec<String>)>) {
+        let actual = parse_users(input).unwrap();
         assert_eq!(expected, actual);
     }
 
@@ -94,8 +135,8 @@ mod tests {
     #[test_case(":oo"; "empty user")]
     #[test_case("olia"; "invalid format")]
 
-    fn test_parse_user_pass_failure(input: &str) {
-        let result = parse_user_pass(input);
+    fn test_parse_users_failure(input: &str) {
+        let result = parse_users(input);
         assert!(result.is_err());
     }
 }

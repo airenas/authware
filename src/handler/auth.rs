@@ -64,7 +64,7 @@ pub async fn handler(
     let response = Response::builder()
         .status(StatusCode::OK)
         .header(
-            "X-User-Info",
+            "User-Info",
             HeaderValue::from_str(&encoded_header)
                 .map_err(|e| ApiError::Server(format!("build response: {e}")))?,
         )
