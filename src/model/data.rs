@@ -18,7 +18,12 @@ impl SessionData {
         Ok(())
     }
     pub fn check_inactivity(&self, now: i64, dur: i64) -> Result<(), ApiError> {
-        tracing::trace!(last_access = self.last_access, now = now, dur = dur, "check_inactivity");
+        tracing::trace!(
+            last_access = self.last_access,
+            now = now,
+            dur = dur,
+            "check_inactivity"
+        );
         if self.last_access + dur < now {
             return Err(ApiError::ExpiredSession());
         }
