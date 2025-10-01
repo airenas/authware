@@ -11,20 +11,19 @@ use crate::model::service;
 
 use super::error::ApiError;
 
-// This handler is used to keep the session alive by updating its last access time.
 pub async fn handler(
     State(data): State<Arc<service::Data>>,
     headers: HeaderMap,
     bearer: Option<TypedHeader<Authorization<Bearer>>>,
 ) -> Result<(), ApiError> {
-    tracing::debug!("start keep_alive");
+    tracing::debug!("start validate");
     let ip = data.ip_extractor.get(&headers);
     tracing::debug!(ip = ip.as_ref(), "caller");
     match bearer {
         None => Err(ApiError::NoSession()),
         Some(bearer) => {
             let session_id = bearer.token();
-            tracing::debug!(session_id = session_id, "keep_alive");
+            tracing::debug!(session_id = session_id, "validate");
             let store = &data.store;
             let res = store.get(session_id).await?;
 
@@ -33,7 +32,6 @@ pub async fn handler(
             res.check_expired(now)?;
             let config = &data.config;
             res.check_inactivity(now, config.inactivity)?;
-            store.mark_last_used(session_id, now).await?;
             Ok(())
         }
     }

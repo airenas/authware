@@ -93,6 +93,17 @@ async fn wait_for_server_ready() {
     panic!("Server did not become ready within {timeout_sec} seconds");
 }
 
+async fn logout(client: &Client, token: &str) {
+    let url = format!("{}/logout", get_auth_service_url());
+    let response = client
+        .post(&url)
+        .header("Authorization", format!("Bearer {token}"))
+        .send()
+        .await
+        .expect("Failed to send request");
+    assert_eq!(response.status(), reqwest::StatusCode::OK);
+}
+
 #[tokio::test]
 async fn test_live() {
     init_wait_for_ready().await;
@@ -139,6 +150,43 @@ async fn test_successful_auth() {
     let token = get_session_id("").await;
     let client = create_client();
     let url = get_auth_service_url();
+    let response = client
+        .get(url)
+        .header("Authorization", format!("Bearer {token}"))
+        .send()
+        .await
+        .expect("Failed to send request");
+    assert_eq!(response.status(), reqwest::StatusCode::OK);
+}
+
+#[tokio::test]
+async fn test_failed_validate() {
+    init_wait_for_ready().await;
+    let token = get_session_id("").await;
+    let client = create_client();
+    logout(&client, &token).await;
+    let url = format!("{}/validate", get_auth_service_url());
+    let response = client
+        .get(&url)
+        .header("Authorization", format!("Bearer {token}"))
+        .send()
+        .await
+        .expect("Failed to send request");
+    assert_eq!(response.status(), reqwest::StatusCode::UNAUTHORIZED);
+    let response = client
+        .get(&url)
+        .send()
+        .await
+        .expect("Failed to send request");
+    assert_eq!(response.status(), reqwest::StatusCode::UNAUTHORIZED);
+}
+
+#[tokio::test]
+async fn test_successful_validate() {
+    init_wait_for_ready().await;
+    let token = get_session_id("").await;
+    let client = create_client();
+    let url = format!("{}/validate", get_auth_service_url());
     let response = client
         .get(url)
         .header("Authorization", format!("Bearer {token}"))
@@ -203,14 +251,7 @@ async fn test_logout() {
     init_wait_for_ready().await;
     let token = get_session_id("").await;
     let client = create_client();
-    let url = format!("{}/logout", get_auth_service_url());
-    let response = client
-        .post(&url)
-        .header("Authorization", format!("Bearer {token}"))
-        .send()
-        .await
-        .expect("Failed to send request");
-    assert_eq!(response.status(), reqwest::StatusCode::OK);
+    logout(&client, &token).await;
     let url = get_auth_service_url();
     let response = client
         .get(url)

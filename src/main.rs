@@ -127,6 +127,7 @@ async fn main_int(args: Args) -> anyhow::Result<()> {
         .route("/auth/login", post(handler::login::handler))
         .route("/auth/logout", post(handler::logout::handler))
         .route("/auth/keep-alive", post(handler::keep_alive::handler))
+        .route("/auth/validate", get(handler::validate::handler))
         .route("/auth", get(handler::auth::handler))
         .with_state(quarded_data)
         .layer((
