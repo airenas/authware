@@ -30,6 +30,12 @@ pub async fn handler(
         .get("X-Forwarded-Uri")
         .map(|h| h.to_str().unwrap_or(""));
 
+    let skip_alive = headers
+        .get("Skip-Alive")
+        .and_then(|h| h.to_str().ok())
+        .map(|s| s.eq_ignore_ascii_case("true"))
+        .unwrap_or(false);
+
     let ip = data.ip_extractor.get(&headers);
     tracing::info!(url = forwarded_uri, ip = ip.as_ref(), "auth");
     let session_id = match bearer.as_ref() {
@@ -55,7 +61,15 @@ pub async fn handler(
     res.check_expired(now)?;
     let config = &data.config;
     res.check_inactivity(now, config.inactivity)?;
-    store.mark_last_used(session_id.as_ref(), now).await?;
+
+    if !skip_alive {
+        store.mark_last_used(session_id.as_ref(), now).await?;
+    } else {
+        tracing::debug!(
+            "Skipping alive update for session_id={}",
+            session_id.as_ref()
+        );
+    }
 
     let header = serde_json::to_string(&res.user)
         .map_err(|e| ApiError::Server(format!("serialize session data: {e}")))?;
