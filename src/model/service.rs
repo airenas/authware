@@ -8,4 +8,5 @@ pub struct Data {
     pub store: Box<dyn SessionStore + Send + Sync>,
     pub auth_service: Box<dyn AuthService + Send + Sync>,
     pub ip_extractor: Box<dyn IPExtractor + Send + Sync>,
+    pub is_test_mode: bool,
 }

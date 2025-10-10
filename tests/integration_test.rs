@@ -160,6 +160,70 @@ async fn test_successful_auth() {
 }
 
 #[tokio::test]
+async fn test_last_access_auth() {
+    init_wait_for_ready().await;
+    let token = get_session_id("").await;
+    let client = create_client();
+    let url = get_auth_service_url();
+
+    let now = chrono::Utc::now().timestamp_millis();
+    let mut last_access: i64 = 0;
+
+    sleep(Duration::from_millis(5)).await;
+    for _ in 0..2 {
+        // Make two requests to see last_access update
+        let response = client
+            .get(&url)
+            .header("Authorization", format!("Bearer {token}"))
+            .send()
+            .await
+            .expect("Failed to send request");
+        assert_eq!(response.status(), reqwest::StatusCode::OK);
+        last_access = response
+            .headers()
+            .get("test-last-access")
+            .and_then(|h| h.to_str().ok())
+            .and_then(|s| s.parse().ok())
+            .expect("Failed to parse test-last-access header");
+    }
+
+    tracing::info!(last_access, now);
+    assert!(last_access > now);
+}
+
+#[tokio::test]
+async fn test_last_access_skip_auth() {
+    init_wait_for_ready().await;
+    let token = get_session_id("").await;
+    let client = create_client();
+    let url = get_auth_service_url();
+    let now = chrono::Utc::now().timestamp_millis();
+
+    let mut last_access: i64 = 0;
+
+    sleep(Duration::from_millis(10)).await;
+    for _ in 0..2 {
+        // Make two requests to see last_access update
+        let response = client
+            .get(&url)
+            .header("Authorization", format!("Bearer {token}"))
+            .header("Skip-Alive", "true")
+            .send()
+            .await
+            .expect("Failed to send request");
+        assert_eq!(response.status(), reqwest::StatusCode::OK);
+        last_access = response
+            .headers()
+            .get("test-last-access")
+            .and_then(|h| h.to_str().ok())
+            .and_then(|s| s.parse().ok())
+            .expect("Failed to parse test-last-access header");
+    }
+    tracing::info!(last_access, now);
+    assert!(last_access < now);
+}
+
+#[tokio::test]
 async fn test_failed_validate() {
     init_wait_for_ready().await;
     let token = get_session_id("").await;

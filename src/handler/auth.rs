@@ -75,13 +75,15 @@ pub async fn handler(
         .map_err(|e| ApiError::Server(format!("serialize session data: {e}")))?;
     let encoded_header = base64::prelude::BASE64_STANDARD.encode(header.as_bytes());
 
-    let response = Response::builder()
-        .status(StatusCode::OK)
-        .header(
-            "User-Info",
-            HeaderValue::from_str(&encoded_header)
-                .map_err(|e| ApiError::Server(format!("build response: {e}")))?,
-        )
+    let mut partial_response = Response::builder().status(StatusCode::OK).header(
+        "User-Info",
+        HeaderValue::from_str(&encoded_header)
+            .map_err(|e| ApiError::Server(format!("build response: {e}")))?,
+    );
+    if data.is_test_mode {
+        partial_response = partial_response.header("test-last-access", res.last_access.to_string());
+    }
+    let response = partial_response
         .body(OK_RESPONSE.to_string())
         .map_err(|e| ApiError::Server(format!("build response: {e}")))?;
 

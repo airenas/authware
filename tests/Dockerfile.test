@@ -9,4 +9,4 @@ WORKDIR /src/
 
 ENTRYPOINT ["cargo"]
 
-CMD ["test"]
+CMD ["test", "--", "--nocapture"]

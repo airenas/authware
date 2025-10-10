@@ -9,6 +9,7 @@ services:
       - HOST=authware
       - REDIS_URL=redis://redis:6379
       - ENCRYPTION_KEY=cheemueZu8aetheighooXae6Boh7as
+      - IS_TEST_MODE=true
 
   redis:
     image: redis:7.2.5-alpine3.19

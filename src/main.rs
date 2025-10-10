@@ -68,12 +68,18 @@ struct Args {
     // app code in authentication ws
     #[arg(long, env, default_value = "", required = false)]
     auth_app_code: String,
+    // app code in authentication ws
+    #[arg(long, env, default_value = "false", required = false)]
+    is_test_mode: bool,
 }
 
 async fn main_int(args: Args) -> anyhow::Result<()> {
     log::info!("Starting authware");
     tracing::info!(version = env!("CARGO_APP_VERSION"));
     tracing::info!(port = args.port, "cfg");
+    if args.is_test_mode {
+        tracing::warn!("Running in TEST MODE");
+    }
 
     tracing::info!(
         session_timeout = format_duration(args.session_timeout).to_string(),
@@ -111,6 +117,7 @@ async fn main_int(args: Args) -> anyhow::Result<()> {
         store,
         auth_service: auth,
         ip_extractor,
+        is_test_mode: args.is_test_mode,
     };
     let quarded_data = Arc::new(service_data);
 

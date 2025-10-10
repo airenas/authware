@@ -43,7 +43,7 @@ impl IntoResponse for ApiError {
                 )
             }
             ApiError::Other(err) => {
-                tracing::error!("{}", err);
+                tracing::error!(err = %err);
                 (
                     StatusCode::INTERNAL_SERVER_ERROR,
                     Cow::Borrowed("Internal Server Error"),
